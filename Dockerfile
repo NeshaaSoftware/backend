@@ -40,7 +40,9 @@ RUN mkdir -p ${TUTOR_ROOT} && \
 
 # Create a non-root user
 RUN useradd -m tutor-user && \
+    mkdir -p /etc/sudoers.d && \
     echo "tutor-user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tutor-user && \
+    chmod 440 /etc/sudoers.d/tutor-user && \
     usermod -aG docker tutor-user
 
 # Set working directory
@@ -77,7 +79,6 @@ echo \"tutor local stop\" && \
 exec $*"\n' > /usr/local/bin/init-tutor.sh && \
     chmod +x /usr/local/bin/init-tutor.sh
 
-    
 # Set entrypoint
 ENTRYPOINT ["/usr/local/bin/init-tutor.sh"]
 

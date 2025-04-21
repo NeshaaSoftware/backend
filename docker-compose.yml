@@ -5,7 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: tutor-openedx
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - tutor-data:/openedx
@@ -19,7 +18,10 @@ services:
     privileged: true  # Needed for Docker-in-Docker
     environment:
       - TUTOR_ROOT=/openedx
+      - TUTOR_INTERACTIVE=false
+    command: tutor local launch --non-interactive
 
 volumes:
   tutor-data:
     name: tutor-data
+

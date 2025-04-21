@@ -54,5 +54,4 @@ exec "$@"' > /usr/local/bin/init-tutor.sh && \
 # Set entrypoint
 ENTRYPOINT ["/usr/local/bin/init-tutor.sh"]
 
-# Default command (can be overridden)
-CMD ["bash"]
+CMD ["tutor", "local", "launch", "--non-interactive"]

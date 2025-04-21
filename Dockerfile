@@ -77,6 +77,7 @@ echo \"tutor local stop\" && \
 exec $*"\n' > /usr/local/bin/init-tutor.sh && \
     chmod +x /usr/local/bin/init-tutor.sh
 
+    
 # Set entrypoint
 ENTRYPOINT ["/usr/local/bin/init-tutor.sh"]
 

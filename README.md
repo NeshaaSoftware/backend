@@ -115,3 +115,4 @@ If you encounter issues:
 2. Ensure you have sufficient disk space (at least 4GB)
 3. Verify that ports 80 and 443 are not in use by other services
 4. Check the Tutor logs: `tutor local logs`
+

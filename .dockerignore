@@ -1,0 +1,27 @@
+# Git
+.git
+.gitignore
+
+# Docker
+.docker
+docker-compose.yml
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Tutor data (if any exists locally)
+tutor-data/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

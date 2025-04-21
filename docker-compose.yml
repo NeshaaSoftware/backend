@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  tutor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tutor-openedx
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - tutor-data:/openedx
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8000:8000"  # For development server if needed
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    privileged: true  # Needed for Docker-in-Docker
+    environment:
+      - TUTOR_ROOT=/openedx
+
+volumes:
+  tutor-data:
+    name: tutor-data

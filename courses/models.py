@@ -1,11 +1,15 @@
 from typing import ClassVar
 
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from users.models import User
 
-class Course(models.Model):
+from commons.models import LoggedTimeStampedModel
+
+
+class Course(LoggedTimeStampedModel):
     """Course information and details"""
 
     COURSE_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
@@ -18,29 +22,24 @@ class Course(models.Model):
         ("پیله", "پیله"),
     ]
 
-    name = models.CharField(max_length=100)
     course_type = models.CharField(max_length=50, choices=COURSE_TYPE_CHOICES, default="دوره‌های پیشوایی")
-    course_number = models.CharField(max_length=10, default="1")
-    fee = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    number = models.CharField(max_length=10, default="1")
 
-    # Relationships
-    admin_users = models.ManyToManyField(User, blank=True, related_name="managed_courses")
-
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
+    admin_users = models.ManyToManyField(User, blank=True, related_name="managed_courses", help_text="Users who can manage registrations for this course.")
     class Meta:
         verbose_name = "Course"
         verbose_name_plural = "Courses"
-        ordering: ClassVar[list[str]] = ["-created_at"]
-        unique_together: ClassVar[list[list[str]]] = ["course_type", "course_number"]
+        ordering: ClassVar[list[str]] = ["-_created_at"]
+        unique_together: ClassVar[list[list[str]]] = ["course_type", "number"]
 
+    @property
+    def name(self):
+        return f"{self.course_type} - {self.number}"
+    
     def __str__(self):
-        return f"{self.name} - {self.course_type} #{self.course_number}"
+        return f"{self.name}"
 
-
-class CourseSession(models.Model):
+class CourseSession(LoggedTimeStampedModel):
     """Course session component"""
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sessions")
@@ -50,10 +49,6 @@ class CourseSession(models.Model):
     location = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     max_participants = models.PositiveIntegerField(blank=True, null=True)
-
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Course Session"

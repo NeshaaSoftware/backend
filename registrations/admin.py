@@ -8,7 +8,7 @@ from .models import Registration
 @admin.register(Registration)
 class RegistrationAdmin(admin.ModelAdmin):
     list_display: ClassVar[list[str]] = [
-        "participant",
+        "user",
         "course",
         "status",
         "payment_status",
@@ -21,20 +21,20 @@ class RegistrationAdmin(admin.ModelAdmin):
         "registration_date",
     ]
     search_fields: ClassVar[list[str]] = [
-        "participant__full_name",
+        "user__full_name",
         "course__name",
-        "participant__phone_number",
+        "user__phone_number",
     ]
     readonly_fields: ClassVar[list[str]] = [
         "registration_date",
-        "created_at",
-        "updated_at",
+        "_created_at",
+        "_updated_at",
     ]
 
     fieldsets = (
         (
             "Registration Information",
-            {"fields": ("participant", "course", "status", "registration_date")},
+            {"fields": ("user", "course", "status", "registration_date")},
         ),
         (
             "Payment Information",
@@ -43,9 +43,45 @@ class RegistrationAdmin(admin.ModelAdmin):
         ("Additional Information", {"fields": ("notes",)}),
         (
             "Timestamps",
-            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+            {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
         ),
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("participant", "course")
+        qs = super().get_queryset(request).select_related("user", "course")
+        user = request.user
+        if user.is_superuser:
+            return qs
+        # If user is registration admin for any course, only show registrations for those courses
+        managed_courses = user.managed_courses.all()
+        if managed_courses.exists():
+            return qs.filter(course__in=managed_courses)
+        # Otherwise, show only their own registration (if any)
+        return qs.filter(user=user)
+
+    def has_view_permission(self, request, obj=None):
+        user = request.user
+        if user.is_superuser:
+            return True
+        if obj is None:
+            return True  # List view handled by get_queryset
+        # Only allow if user manages the course
+        return obj.course in user.managed_courses.all()
+
+    def has_change_permission(self, request, obj=None):
+        user = request.user
+        if user.is_superuser:
+            return True
+        if obj is None:
+            return True  # List view handled by get_queryset
+        # Only allow if user manages the course
+        return obj.course in user.managed_courses.all()
+
+    def has_delete_permission(self, request, obj=None):
+        user = request.user
+        if user.is_superuser:
+            return True
+        if obj is None:
+            return True  # List view handled by get_queryset
+        # Only allow if user manages the course
+        return obj.course in user.managed_courses.all()

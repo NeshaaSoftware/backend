@@ -3,10 +3,11 @@ from typing import ClassVar
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from commons.models import LoggedTimeStampedModel
 from courses.models import Course
 
 
-class Cost(models.Model):
+class Cost(LoggedTimeStampedModel):
     """Track course and company level costs"""
 
     COST_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
@@ -34,14 +35,10 @@ class Cost(models.Model):
     # Relationship
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="costs", blank=True, null=True)
 
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
     class Meta:
         verbose_name = "Cost"
         verbose_name_plural = "Costs"
-        ordering: ClassVar[list[str]] = ["-date", "-created_at"]
+        ordering: ClassVar[list[str]] = ["-date", "-_created_at"]
 
     def __str__(self):
         course_info = f" - {self.course.name}" if self.course else ""

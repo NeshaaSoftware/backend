@@ -3,3 +3,4 @@ python-decouple==3.8
 gunicorn==23.0.0
 psycopg2-binary==2.9.10
 ruff==0.11.12
+django-phonenumber-field[phonenumbers]==8.1.0

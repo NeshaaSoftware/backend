@@ -17,7 +17,13 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
+from django.http import HttpResponseNotFound
+
+def block_other_urls(request, *args, **kwargs):
+    return HttpResponseNotFound("Not Found")
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("ndash/", admin.site.urls),
+    path("", block_other_urls),  # Block root
+    path("<path:resource>", block_other_urls),  # Block all other URLs
 ]

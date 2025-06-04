@@ -24,7 +24,7 @@ class CostAdmin(admin.ModelAdmin):
         "person",
         "invoice_number",
     ]
-    readonly_fields: ClassVar[list[str]] = ["total_amount", "created_at", "updated_at"]
+    readonly_fields: ClassVar[list[str]] = ["total_amount", "_created_at", "_updated_at"]
     date_hierarchy = "date"
 
     fieldsets = (
@@ -39,7 +39,7 @@ class CostAdmin(admin.ModelAdmin):
         ("Additional Information", {"fields": ("person", "invoice_number")}),
         (
             "Timestamps",
-            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+            {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
         ),
     )
 

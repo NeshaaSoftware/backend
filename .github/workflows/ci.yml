@@ -8,6 +8,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.11.9"
+  DJANGO_ENV: "production"
 
 jobs:
   test:
@@ -62,13 +63,6 @@ jobs:
         pip install coverage
         coverage run --source='.' manage.py test --settings=neshaa.settings.development
         coverage xml
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
 
   lint:
     runs-on: ubuntu-latest

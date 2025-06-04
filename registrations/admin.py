@@ -47,6 +47,50 @@ class RegistrationAdmin(admin.ModelAdmin):
         ),
     )
 
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        user = request.user
+        
+        # If user is superuser, show all fields
+        if user.is_superuser:
+            return fieldsets
+        
+        # If obj exists (editing), check if user manages this course
+        if obj and obj.course in user.managed_courses.all():
+            return fieldsets
+        
+        # If obj doesn't exist (adding) or user doesn't manage the course, hide payment info
+        # Return fieldsets without payment information
+        filtered_fieldsets = []
+        for name, options in fieldsets:
+            if name == "Payment Information":
+                continue  # Skip payment information fieldset
+            filtered_fieldsets.append((name, options))
+        
+        return tuple(filtered_fieldsets)
+
+    def get_list_display(self, request):
+        list_display = super().get_list_display(request)
+        user = request.user
+        
+        # If user is superuser, show all fields
+        if user.is_superuser:
+            return list_display
+        
+        # For course managers and regular users, hide payment_status from list
+        return [field for field in list_display if field != "payment_status"]
+
+    def get_list_filter(self, request):
+        list_filter = super().get_list_filter(request)
+        user = request.user
+        
+        # If user is superuser, show all filters
+        if user.is_superuser:
+            return list_filter
+        
+        # For course managers and regular users, hide payment_status filter
+        return [field for field in list_filter if field != "payment_status"]
+
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("user", "course")
         user = request.user

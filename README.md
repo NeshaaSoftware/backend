@@ -1,113 +1,85 @@
-# Neshaa Django Project
+# Neshaa Django Backend
 
-A Django web application built with modern practices and production-ready configuration.
+A modern, production-ready Django backend for the Neshaa project.
 
-## Project Structure
+## Overview
+
+This project uses Django best practices, modular settings, and is ready for local development, staging, and production. It supports Docker, PostgreSQL, and secure deployment out of the box.
+
+## Project Layout
 
 ```
 backend/
-├── neshaa/                 # Main Django project
-│   ├── settings/          # Split settings configuration
-│   │   ├── base.py       # Shared settings
-│   │   ├── local.py      # Local development
-│   │   ├── development.py # Development environment
-│   │   └── production.py  # Production environment
-│   ├── wsgi.py
-│   └── urls.py
-├── static/                # Static files source
-├── staticfiles/           # Collected static files
-├── media/                 # User uploaded files
-├── templates/             # Django templates
-├── manage.py
-├── requirements.txt
-└── Dockerfile
+├── neshaa/           # Main Django project & settings
+│   └── settings/     # Modular settings: base, local, development, production
+├── static/           # Static files (source)
+├── staticfiles/      # Collected static files
+├── media/            # User uploads
+├── templates/        # Django templates
+├── manage.py         # Django CLI
+├── requirements.txt  # Python dependencies
+└── Dockerfile        # Docker support
 ```
 
-## Environment Configuration
+## Environment Setup
 
-The project uses Django's recommended split settings pattern:
+Settings are modular and selected via the `DJANGO_ENV` environment variable:
 
-- **Base settings** (`base.py`): Shared configuration
-- **Local settings** (`local.py`): Local development with SQLite
-- **Development settings** (`development.py`): Development server with PostgreSQL
-- **Production settings** (`production.py`): Production server with security settings
+- `local` (default): Local dev, SQLite
+- `development`: Dev server, PostgreSQL
+- `production`: Hardened, PostgreSQL
 
-Settings are automatically loaded based on the `DJANGO_ENV` environment variable:
-
+Example:
 ```bash
-# Local development (default)
-export DJANGO_ENV=local
-
-# Development server
-export DJANGO_ENV=development
-
-# Production server
-export DJANGO_ENV=production
+export DJANGO_ENV=local         # or development, production
 ```
 
-## Quick Start
-
-### Local Development
+## Quick Start (Local)
 
 1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
+   ```bash
+   pip install -r requirements.txt
+   ```
 2. Run migrations:
-```bash
-python manage.py migrate
-```
-
+   ```bash
+   python manage.py migrate
+   ```
 3. Create a superuser:
-```bash
-python manage.py createsuperuser
-```
+   ```bash
+   python manage.py createsuperuser
+   ```
+4. Start the server:
+   ```bash
+   python manage.py runserver
+   ```
 
-4. Run the development server:
-```bash
-python manage.py runserver
-```
+## Docker Usage
 
-### Docker Deployment
-
-1. Build the Docker image:
-```bash
-docker build -t neshaa .
-```
-
+1. Build the image:
+   ```bash
+   docker build -t neshaa .
+   ```
 2. Run the container:
-```bash
-docker run -p 8000:8000 -e DJANGO_ENV=production neshaa
-```
+   ```bash
+   docker run -p 8000:8000 -e DJANGO_ENV=production neshaa
+   ```
 
-## Environment Variables
-
-For production deployment, set these environment variables:
+## Required Environment Variables (Production)
 
 - `SECRET_KEY`: Django secret key
-- `DB_NAME`: Database name
-- `DB_USER`: Database user
-- `DB_PASSWORD`: Database password
-- `DB_HOST`: Database host
-- `DB_PORT`: Database port
-- `ALLOWED_HOSTS`: Comma-separated list of allowed hosts
+- `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`: Database config
+- `ALLOWED_HOSTS`: Comma-separated allowed hosts
 
 ## Features
 
-- Split settings configuration for different environments
-- PostgreSQL support for development and production
-- Static files handling
-- Security settings for production
-- Docker support
-- Comprehensive gitignore and dockerignore files
+- Modular, environment-based settings
+- PostgreSQL support for dev/prod
+- Static & media file handling
+- Secure production defaults
+- Docker-ready
 
-## Development
+## Development Notes
 
-The project follows Django best practices:
-
-- Settings are split by environment
-- Static files are properly configured
-- Media files handling is set up
-- Security middleware is enabled
-- CSRF and session security are configured for production
+- Follows Django best practices
+- Static/media files and security middleware configured
+- Easy to extend for new apps or environments

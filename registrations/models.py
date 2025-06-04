@@ -11,19 +11,19 @@ from users.models import User
 class Registration(LoggedTimeStampedModel):
 
     STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
-        ("pending", "Pending"),
-        ("confirmed", "Confirmed"),
-        ("cancelled", "Cancelled"),
-        ("completed", "Completed"),
+        (1, "Pending"),
+        (2, "Confirmed"),
+        (3, "Cancelled"),
+        (4, "Completed"),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="registration")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="registrations")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.IntegerField(choices=STATUS_CHOICES, default=1)
     registration_date = models.DateTimeField(auto_now_add=True)
     payment_status = models.BooleanField(default=False)
-    payment_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    payment_date = models.DateTimeField(blank=True, null=True)
+    payment_amount = models.IntegerField(default=0)
+    next_payment_date = models.DateTimeField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
 
     class Meta:

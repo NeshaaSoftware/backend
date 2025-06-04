@@ -173,8 +173,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Ignore local environment file
+# Ignore local environment files
 .env.local
+.env.development
+.env.production
 
 # Django
 *.log
@@ -188,9 +190,11 @@ db.sqlite3-journal
 # Static files
 /staticfiles/
 /static/
+static_root/
 
 # Media files
 /media/
+media_root/
 
 # Virtual environment
 venv/
@@ -201,3 +205,83 @@ env/
 .idea/
 *.swp
 *.swo
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Security reports
+bandit-report.json
+safety-report.json
+
+# Coverage reports
+coverage.xml
+.coverage
+htmlcov/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+.temporary
+
+# Session data
+django_session/
+
+# Redis dump file
+dump.rdb
+
+# Postgres backup files
+*.sql
+*.dump
+
+# SSL certificates (if any)
+*.pem
+*.key
+*.crt
+*.cert
+
+# Secret files
+secrets.json
+secrets.yml
+secrets.yaml
+
+# Deployment files
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Vagrant
+.vagrant/
+
+# Node modules (if using any frontend build tools)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Webpack bundles (if using)
+webpack-stats.json
+bundles/
+
+# Collected static files in development
+collected_static/
+
+# Sentry
+.sentryclirc
+
+# Local configuration overrides
+local_config.py
+config_local.py

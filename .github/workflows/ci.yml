@@ -1,0 +1,158 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: "3.11.9"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: neshaa_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Set up environment variables
+      run: |
+        echo "SECRET_KEY=test-secret-key-for-ci-only-not-for-production" >> $GITHUB_ENV
+        echo "DATABASE_URL=postgres://postgres:postgres@localhost:5432/neshaa_test" >> $GITHUB_ENV
+        echo "DEBUG=True" >> $GITHUB_ENV
+        echo "ALLOWED_HOSTS=localhost,127.0.0.1" >> $GITHUB_ENV
+
+    - name: Run migrations
+      run: |
+        python manage.py migrate --settings=neshaa.settings.development
+
+    - name: Run tests
+      run: |
+        python manage.py test --settings=neshaa.settings.development
+
+    - name: Generate coverage report
+      run: |
+        pip install coverage
+        coverage run --source='.' manage.py test --settings=neshaa.settings.development
+        coverage xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff
+
+    - name: Run Ruff linter
+      run: ruff check .
+
+    - name: Run Ruff formatter check
+      run: ruff format --check .
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install bandit[toml] safety
+
+    - name: Run Bandit security linter
+      run: bandit -r . -f json -o bandit-report.json || true
+
+    - name: Run Safety check
+      run: safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  darkube_build_neshaa-portal_neshaa_hamravesh-c13:
+    runs-on: ubuntu-latest
+    needs: [test, lint, security]
+    if: github.ref == 'refs/heads/main'
+    container:
+      image: hamravesh/darkube-cli:v1.1
+      options: --user root
+    env:
+      IMAGE_NAME: registry.hamdocker.ir/neshaa/neshaa-portal
+    
+    steps:
+    - name: checkout commit
+      uses: actions/checkout@v4
+      
+    - name: darkube-cli build & push
+      run: 'darkube build --push -t $IMAGE_NAME:${GITHUB_SHA:0:7} -t $IMAGE_NAME:${GITHUB_REF_NAME}
+        --docker-auth-config ${{secrets.DOCKER_AUTH_CONFIG}} --workdir . --file ./Dockerfile
+        --build-context . '
+
+  darkube_deploy_neshaa-portal_neshaa_hamravesh-c13:
+    runs-on: ubuntu-latest
+    needs: darkube_build_neshaa-portal_neshaa_hamravesh-c13
+    if: github.ref == 'refs/heads/main'
+    container:
+      image: hamravesh/darkube-cli:v1.1
+    
+    steps:
+    - name: darkube-cli deploy
+      run: darkube deploy --token ${{secrets.DEPLOY_TOKEN_NESHAA_PORTAL_NESHAA_HAMRAVESH_C13}}
+        --app-id ${{secrets.APP_ID_NESHAA_PORTAL_NESHAA_HAMRAVESH_C13}} --image-tag
+        ${GITHUB_SHA:0:7} --job-id ${GITHUB_RUN_ID}

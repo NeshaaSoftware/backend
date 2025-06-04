@@ -25,3 +25,23 @@ tutor-data/
 # Temporary files
 *.tmp
 *.temp
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database
+db.sqlite3
+*.db
+
+# Static and media files
+/staticfiles/
+/media/
+
+# Environment files
+.env*
+
+# Docker
+.dockerignore

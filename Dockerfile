@@ -11,6 +11,10 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . .
 
+# Set environment to production by default in Docker
+ENV DJANGO_ENV=production
+
+# Collect static files
 RUN python manage.py collectstatic --noinput
 
 CMD ["gunicorn", "neshaa.wsgi:application", "--bind", "0.0.0.0:8000"]

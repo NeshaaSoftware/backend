@@ -111,14 +111,6 @@ jobs:
     - name: Run Safety check
       run: safety check --json --output safety-report.json || true
 
-    - name: Upload security reports
-      uses: actions/upload-artifact@v3
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
-
   darkube_build_neshaa-portal_neshaa_hamravesh-c13:
     runs-on: ubuntu-latest
     needs: [test, lint, security]

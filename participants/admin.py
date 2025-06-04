@@ -16,8 +16,18 @@ class ParticipantAdmin(admin.ModelAdmin):
         "joined_main_group",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = ["gender", "education", "joined_main_group", "created_at"]
-    search_fields: ClassVar[list[str]] = ["full_name", "phone_number", "email", "telegram_id"]
+    list_filter: ClassVar[list[str]] = [
+        "gender",
+        "education",
+        "joined_main_group",
+        "created_at",
+    ]
+    search_fields: ClassVar[list[str]] = [
+        "full_name",
+        "phone_number",
+        "email",
+        "telegram_id",
+    ]
     readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
 
     fieldsets = (

@@ -19,18 +19,12 @@ class Course(models.Model):
     ]
 
     name = models.CharField(max_length=100)
-    course_type = models.CharField(
-        max_length=50, choices=COURSE_TYPE_CHOICES, default="دوره‌های پیشوایی"
-    )
+    course_type = models.CharField(max_length=50, choices=COURSE_TYPE_CHOICES, default="دوره‌های پیشوایی")
     course_number = models.CharField(max_length=10, default="1")
-    fee = models.DecimalField(
-        max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
-    )
+    fee = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
 
     # Relationships
-    admin_users = models.ManyToManyField(
-        User, blank=True, related_name="managed_courses"
-    )
+    admin_users = models.ManyToManyField(User, blank=True, related_name="managed_courses")
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,9 +43,7 @@ class Course(models.Model):
 class CourseSession(models.Model):
     """Course session component"""
 
-    course = models.ForeignKey(
-        Course, on_delete=models.CASCADE, related_name="sessions"
-    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sessions")
     session_name = models.CharField(max_length=100)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()

@@ -25,20 +25,14 @@ class Cost(models.Model):
     title = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField()
     person = models.CharField(max_length=100, blank=True, null=True)
-    amount = models.DecimalField(
-        max_digits=12, decimal_places=2, validators=[MinValueValidator(0)]
-    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
-    total_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, validators=[MinValueValidator(0)]
-    )
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     is_paid = models.BooleanField(default=False)
     cost_type = models.CharField(max_length=50, choices=COST_TYPE_CHOICES)
 
     # Relationship
-    course = models.ForeignKey(
-        Course, on_delete=models.CASCADE, related_name="costs", blank=True, null=True
-    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="costs", blank=True, null=True)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

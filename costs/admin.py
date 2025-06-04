@@ -18,7 +18,12 @@ class CostAdmin(admin.ModelAdmin):
         "date",
     ]
     list_filter: ClassVar[list[str]] = ["cost_type", "is_paid", "course", "date"]
-    search_fields: ClassVar[list[str]] = ["title", "description", "person", "invoice_number"]
+    search_fields: ClassVar[list[str]] = [
+        "title",
+        "description",
+        "person",
+        "invoice_number",
+    ]
     readonly_fields: ClassVar[list[str]] = ["total_amount", "created_at", "updated_at"]
     date_hierarchy = "date"
 

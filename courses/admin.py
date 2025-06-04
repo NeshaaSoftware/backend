@@ -8,12 +8,24 @@ from .models import Course, CourseSession
 class CourseSessionInline(admin.TabularInline):
     model = CourseSession
     extra = 1
-    fields: ClassVar[list[str]] = ["session_name", "start_date", "end_date", "location", "max_participants"]
+    fields: ClassVar[list[str]] = [
+        "session_name",
+        "start_date",
+        "end_date",
+        "location",
+        "max_participants",
+    ]
 
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display: ClassVar[list[str]] = ["name", "course_type", "course_number", "fee", "created_at"]
+    list_display: ClassVar[list[str]] = [
+        "name",
+        "course_type",
+        "course_number",
+        "fee",
+        "created_at",
+    ]
     list_filter: ClassVar[list[str]] = ["course_type", "created_at"]
     search_fields: ClassVar[list[str]] = ["name", "course_number"]
     readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]

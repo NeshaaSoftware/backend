@@ -14,13 +14,22 @@ class RegistrationAdmin(admin.ModelAdmin):
         "payment_status",
         "registration_date",
     ]
-    list_filter: ClassVar[list[str]] = ["status", "payment_status", "course", "registration_date"]
+    list_filter: ClassVar[list[str]] = [
+        "status",
+        "payment_status",
+        "course",
+        "registration_date",
+    ]
     search_fields: ClassVar[list[str]] = [
         "participant__full_name",
         "course__name",
         "participant__phone_number",
     ]
-    readonly_fields: ClassVar[list[str]] = ["registration_date", "created_at", "updated_at"]
+    readonly_fields: ClassVar[list[str]] = [
+        "registration_date",
+        "created_at",
+        "updated_at",
+    ]
 
     fieldsets = (
         (

@@ -1,152 +1,154 @@
-from typing import ClassVar
 from django.contrib import admin
+from django.contrib.admin.models import ADDITION, LogEntry
 from django.contrib.contenttypes.models import ContentType
-from django.utils.html import format_html
 
-from .models import AuditLog
+from commons.models import DetailedLog
 
 
-@admin.register(AuditLog)
-class AuditLogAdmin(admin.ModelAdmin):
-    list_display: ClassVar[list[str]] = [
-        "action",
+class DetailedLogAdminMixin:
+    def log_django_admin_action(self, request, obj, action_flag, change_message=None):
+        LogEntry.objects.log_action(
+            user_id=request.user.pk if request.user.is_authenticated else None,
+            content_type_id=ContentType.objects.get_for_model(obj.__class__).pk,
+            object_id=obj.pk,
+            object_repr=str(obj),
+            action_flag=action_flag,
+            change_message=change_message or "",
+        )
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            old_obj = obj.__class__.objects.get(pk=obj.pk)
+            self.custom_old_values = {f.name: getattr(old_obj, f.name) for f in obj._meta.fields}
+        else:
+            self.custom_old_values = None
+        super().save_model(request, obj, form, change)
+
+    def log_addition(self, request, obj, message):
+        from commons.models import DetailedLog
+
+        self.custom_new_values = {f.name: getattr(obj, f.name) for f in obj._meta.fields}
+
+        return DetailedLog.objects.create(
+            user_id=request.user.pk,
+            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
+            object_id=obj.pk,
+            object_repr=str(obj)[:200],
+            action_flag=ADDITION,
+            change_message=message or "",
+            old_values={},
+            changed_values=self.custom_new_values,
+        )
+
+    def log_change(self, request, obj, message):
+        from django.contrib.admin.models import CHANGE
+
+        from commons.models import DetailedLog
+
+        self.custom_new_values = {f.name: getattr(obj, f.name) for f in obj._meta.fields}
+        self.custom_changed_values = []
+        for k in self.custom_new_values:
+            if self.custom_old_values[k] != self.custom_new_values[k]:
+                self.custom_changed_values.append({k: self.custom_new_values[k]})
+
+        return DetailedLog.objects.create(
+            user_id=request.user.pk,
+            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
+            object_id=obj.pk,
+            object_repr=str(obj)[:200],
+            action_flag=CHANGE,
+            change_message=message or "",
+            old_values=self.custom_old_values,
+            changed_values=self.custom_changed_values,
+        )
+
+    def log_deletion(self, request, obj, object_repr):
+        import warnings
+
+        from django.utils.deprecation import RemovedInDjango60Warning
+
+        """
+        Log that an object will be deleted. Note that this method must be
+        called before the deletion.
+
+        The default implementation creates an admin LogEntry object.
+        """
+        warnings.warn(
+            "ModelAdmin.log_deletion() is deprecated. Use log_deletions() instead.",
+            RemovedInDjango60Warning,
+            stacklevel=2,
+        )
+        from django.contrib.admin.models import DELETION
+
+        return DetailedLog.objects.create(
+            user_id=request.user.pk,
+            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
+            object_id=obj.pk,
+            object_repr=str(obj)[:200],
+            action_flag=DELETION,
+            old_values={},
+            changed_values={f.name: getattr(obj, f.name) for f in obj._meta.fields},
+        )
+
+    def log_deletions(self, request, queryset):
+        import warnings
+
+        from django.contrib.admin import ModelAdmin
+
+        """
+        Log that objects will be deleted. Note that this method must be called
+        before the deletion.
+
+        The default implementation creates admin LogEntry objects.
+        """
+        from django.contrib.admin.models import DELETION
+        from django.utils.deprecation import RemovedInDjango60Warning
+
+        # RemovedInDjango60Warning.
+        if type(self).log_deletion != ModelAdmin.log_deletion:
+            warnings.warn(
+                "The usage of log_deletion() is deprecated. Implement log_deletions() instead.",
+                RemovedInDjango60Warning,
+                stacklevel=2,
+            )
+            return [self.log_deletion(request, obj, str(obj)) for obj in queryset]
+
+        return [
+            DetailedLog.objects.create(
+                user_id=request.user.pk,
+                content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
+                object_id=obj.pk,
+                object_repr=str(obj)[:200],
+                action_flag=DELETION,
+                old_values={},
+                changed_values={f.name: getattr(obj, f.name) for f in obj._meta.fields},
+            )
+            for obj in queryset
+        ]
+
+
+@admin.register(DetailedLog)
+class DetailedLogAdmin(admin.ModelAdmin):
+    list_display = ("action_time", "user", "content_type", "object_repr", "action_flag", "change_message")
+    list_filter = ("action_time", "user", "action_flag")
+    search_fields = ("object_repr", "change_message")
+    date_hierarchy = "action_time"
+
+    readonly_fields = [
+        "action_time",
+        "user",
         "content_type",
         "object_id",
-        "user",
-        "timestamp",
-        "get_changed_fields_display",
+        "object_repr",
+        "action_flag",
+        "change_message",
     ]
-    list_filter: ClassVar[list[str]] = [
-        "action",
-        "content_type",
-        "timestamp",
-        "user",
-    ]
-    search_fields: ClassVar[list[str]] = [
-        "user__username",
-        "user__email",
-        "object_id",
-        "ip_address",
-    ]
-    readonly_fields: ClassVar[list[str]] = [
-        "content_type",
-        "object_id",
-        "content_object",
-        "action",
-        "timestamp",
-        "user",
-        "ip_address",
-        "user_agent",
-        "old_values",
-        "new_values",
-        "changed_fields",
-        "get_formatted_old_values",
-        "get_formatted_new_values",
-    ]
-
-    date_hierarchy = "timestamp"
-    ordering = ["-timestamp"]
-
-    fieldsets = (
-        (
-            "Object Information",
-            {
-                "fields": (
-                    "content_type",
-                    "object_id",
-                    "content_object",
-                )
-            },
-        ),
-        (
-            "Action Details",
-            {
-                "fields": (
-                    "action",
-                    "timestamp",
-                    "user",
-                )
-            },
-        ),
-        (
-            "Request Information",
-            {
-                "fields": (
-                    "ip_address",
-                    "user_agent",
-                ),
-                "classes": ("collapse",),
-            },
-        ),
-        (
-            "Change Details",
-            {
-                "fields": (
-                    "changed_fields",
-                    "get_formatted_old_values",
-                    "get_formatted_new_values",
-                ),
-            },
-        ),
-        (
-            "Raw Data",
-            {
-                "fields": (
-                    "old_values",
-                    "new_values",
-                ),
-                "classes": ("collapse",),
-            },
-        ),
-        (
-            "Additional Information",
-            {
-                "fields": ("notes",),
-                "classes": ("collapse",),
-            },
-        ),
-    )
 
     def has_add_permission(self, request):
-        """Disable adding audit logs manually"""
         return False
 
     def has_change_permission(self, request, obj=None):
-        """Make audit logs read-only"""
         return False
 
     def has_delete_permission(self, request, obj=None):
-        """Disable deleting audit logs"""
         return False
-
-    def get_changed_fields_display(self, obj):
-        """Display changed fields in a readable format"""
-        if obj.changed_fields:
-            return ", ".join(obj.changed_fields)
-        return "-"
-
-    get_changed_fields_display.short_description = "Changed Fields"
-
-    def get_formatted_old_values(self, obj):
-        """Format old values for display"""
-        if obj.old_values:
-            html = "<table style='width:100%;'>"
-            for field, value in obj.old_values.items():
-                html += f"<tr><td><strong>{field}:</strong></td><td>{value}</td></tr>"
-            html += "</table>"
-            return format_html(html)
-        return "-"
-
-    get_formatted_old_values.short_description = "Old Values"
-
-    def get_formatted_new_values(self, obj):
-        """Format new values for display"""
-        if obj.new_values:
-            html = "<table style='width:100%;'>"
-            for field, value in obj.new_values.items():
-                html += f"<tr><td><strong>{field}:</strong></td><td>{value}</td></tr>"
-            html += "</table>"
-            return format_html(html)
-        return "-"
-
-    get_formatted_new_values.short_description = "New Values"

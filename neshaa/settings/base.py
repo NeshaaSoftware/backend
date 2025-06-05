@@ -14,12 +14,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_jalali",
+    "django_extensions",
     # Local apps
     "commons",
     "users",
     "courses",
-    "registrations",
-    "costs",
+    "financials",
 ]
 
 MIDDLEWARE = [
@@ -30,7 +31,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "commons.middleware.AuditMiddleware",
 ]
 
 ROOT_URLCONF = "neshaa.urls"
@@ -68,7 +68,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Tehran"
 USE_I18N = True
 USE_TZ = True
 
@@ -134,5 +134,26 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+    },
+}
+
+
+JALALI_SETTINGS = {
+    # JavaScript static files for the admin Jalali date widget
+    "ADMIN_JS_STATIC_FILES": [
+        "admin/jquery.ui.datepicker.jalali/scripts/jquery-1.10.2.min.js",
+        "admin/jquery.ui.datepicker.jalali/scripts/jquery.ui.core.js",
+        "admin/jquery.ui.datepicker.jalali/scripts/jquery.ui.datepicker-cc.js",
+        "admin/jquery.ui.datepicker.jalali/scripts/calendar.all.js",
+        "admin/jquery.ui.datepicker.jalali/scripts/calendar.js",
+        "admin/jquery.ui.datepicker.jalali/scripts/jquery.ui.datepicker-cc-fa.js",
+        "admin/main.js",
+    ],
+    # CSS static files for the admin Jalali date widget
+    "ADMIN_CSS_STATIC_FILES": {
+        "all": [
+            "admin/jquery.ui.datepicker.jalali/themes/base/jquery-ui.min.css",
+            "admin/css/main.css",
+        ]
     },
 }

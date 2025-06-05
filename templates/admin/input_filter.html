@@ -1,0 +1,5 @@
+{# Custom admin filter template for text input #}
+<div class="text-filter">
+  <label for="{{ spec.parameter_name }}">{{ spec.title|capfirst }}:</label>
+  <input type="text" size="10" name="{{ spec.parameter_name }}" id="{{ spec.parameter_name }}" value="{{ spec.value|default_if_none:'' }}" />
+</div>

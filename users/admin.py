@@ -3,11 +3,13 @@ from typing import ClassVar
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
+from commons.admin import DetailedLogAdminMixin
+
 from .models import User
 
 
 @admin.register(User)
-class UserAdmin(UserAdmin):
+class UserAdmin(DetailedLogAdminMixin, UserAdmin):
     list_display: ClassVar[list[str]] = [
         "id",
         "phone_number",

@@ -4,3 +4,5 @@ gunicorn==23.0.0
 psycopg2-binary==2.9.10
 ruff==0.11.12
 django-phonenumber-field[phonenumbers]==8.1.0
+django_jalali[drf]==7.4.0
+django-extensions==4.1

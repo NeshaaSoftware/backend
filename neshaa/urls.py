@@ -19,6 +19,8 @@ from django.contrib import admin
 from django.http import HttpResponseNotFound
 from django.urls import path
 
+from commons.views_readiness import readiness_probe
+
 
 def block_other_urls(request, *args, **kwargs):
     return HttpResponseNotFound("Not Found")
@@ -28,4 +30,5 @@ urlpatterns = [
     path("ndash/", admin.site.urls),
     path("", block_other_urls),  # Block root
     path("<path:resource>", block_other_urls),  # Block all other URLs
+    path("readiness/", readiness_probe, name="readiness-probe"),
 ]

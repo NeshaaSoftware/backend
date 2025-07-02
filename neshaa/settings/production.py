@@ -3,7 +3,7 @@ import os
 from .base import *
 
 DEBUG = False
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "your-production-domain.com").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "neshaa.ir").split(",")
 
 DATABASES = {
     "default": {

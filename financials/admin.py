@@ -1,5 +1,3 @@
-from typing import ClassVar
-
 from django import forms
 from django.contrib import admin
 from django_jalali.admin.filters import JDateFieldListFilter
@@ -34,7 +32,7 @@ class CostAdminForm(forms.ModelForm):
 @admin.register(Cost)
 class CostAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     form = CostAdminForm
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "title",
         "cost_type",
         "course",
@@ -43,19 +41,19 @@ class CostAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "total_amount",
         "is_paid",
     ]
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "cost_type",
         "is_paid",
         "course",
         ("date", JDateFieldListFilter),
     ]
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "title",
         "description",
         "person",
         "invoice_number",
     ]
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "total_amount",
         "_created_at",
         "_updated_at",
@@ -105,16 +103,16 @@ class IncomeAdminForm(forms.ModelForm):
 @admin.register(Income)
 class IncomeAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     form = IncomeAdminForm
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "name",
         "course",
         "user",
         "amount",
         "date",
     ]
-    list_filter: ClassVar[list[str]] = ["course", "date"]
-    search_fields: ClassVar[list[str]] = ["name", "description", "user__username", "course__number"]
-    readonly_fields: ClassVar[list[str]] = ["_created_at", "_updated_at"]
+    list_filter = ["course", "date"]
+    search_fields = ["name", "description", "user__username", "course__number"]
+    readonly_fields = ["_created_at", "_updated_at"]
 
     fieldsets = (
         (

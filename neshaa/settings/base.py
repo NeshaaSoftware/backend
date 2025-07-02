@@ -157,3 +157,6 @@ JALALI_SETTINGS = {
         ]
     },
 }
+
+SHELL_PLUS = "ipython"  # Or "bpython" or "ptpython"
+SHELL_PLUS_PRINT_SQL = True  # To print SQL queries executed by Django ORM

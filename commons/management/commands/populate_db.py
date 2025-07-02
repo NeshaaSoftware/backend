@@ -8,7 +8,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         from django.contrib.auth.models import Group, Permission
 
-        from courses.models import Course, CourseSession, Registration
+        from courses.models import Course, CourseSession, CourseType, Registration
         from users.models import User
 
         if not User.objects.filter(is_superuser=True).exists():
@@ -29,10 +29,22 @@ class Command(BaseCommand):
         ]
         if users:
             User.objects.bulk_create(users)
+        done_course_types = dict.fromkeys(CourseType.objects.values_list("id", flat=True), True)
+        course_types = {1: ("L1", "ال۱"), 2: ("L2", "ال۲"), 3: ("L3", "ال۳"), 4: ("L4", "ال۴")}
+        course_types = [
+            CourseType(id=i, name=name, name_fa=name_fa)
+            for i, (name, name_fa) in course_types.items()
+            if i not in done_course_types
+        ]
+        if course_types:
+            CourseType.objects.bulk_create(course_types)
+        print("Course types created:", CourseType.objects.count())
         done_courses = dict.fromkeys(Course.objects.values_list("number", flat=True), True)
-        courses = [Course(course_type=1, number=i) for i in range(300) if i not in done_courses]
+        ct1 = CourseType.objects.get(id=1)
+        courses = [Course(course_type=ct1, number=i) for i in range(300) if i not in done_courses]
         if courses:
             Course.objects.bulk_create(courses)
+        print("Courses created:", Course.objects.count())
         done_sessions = dict.fromkeys(CourseSession.objects.values_list("session_name", flat=True), True)
         sessions = [
             CourseSession(
@@ -47,6 +59,7 @@ class Command(BaseCommand):
         ]
         if sessions:
             CourseSession.objects.bulk_create(sessions)
+        print("Sessions created:", CourseSession.objects.count())
         done_registrations = {
             (f"{a[0]}-{a[1]}"): True for a in Registration.objects.values_list("course_id", "user_id")
         }
@@ -62,6 +75,7 @@ class Command(BaseCommand):
         ]
         if registrations:
             Registration.objects.bulk_create(registrations)
+        print("Registrations created:", Registration.objects.count())
         user1 = User.objects.get(username="testuser1")
         user2 = User.objects.get(username="testuser2")
         user1.is_staff = True
@@ -70,16 +84,18 @@ class Command(BaseCommand):
         user2.is_staff = True
         user2.set_password("testpass")
         user2.save()
+        print("Users created and updated:", User.objects.count())
         Course.objects.get(course_type=1, number=1).instructors.add(user1)
         Course.objects.get(course_type=1, number=2).managing_users.add(user1)
-        Course.objects.get(course_type=1, number=3).assisting_users.add(user1)
+        Course.objects.get(course_type=1, number=3).supporting_users.add(user1)
         if not Group.objects.filter(name="assisting").exists():
             group_assist = Group.objects.create(name="assisting")
             permissions_code = ["add_registration", "change_registration", "view_registration", "view_course"]
             group_assist.permissions.set(Permission.objects.filter(codename__in=permissions_code))
             user1.groups.add(group_assist)
             user2.groups.add(group_assist)
-        registrations = Registration.objects.filter(course_id=3)
+        registrations = Registration.objects.select_related("user").filter(course_id=3)
         for registration in registrations:
-            registration.assistant = user1 if registration.user_id % 2 == 0 else user2
+            registration.support_user = user1 if registration.user_id % 2 == 0 else user2
             registration.save()
+        print("Users updated with roles and permissions.", registrations.count())

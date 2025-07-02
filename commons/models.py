@@ -17,6 +17,7 @@ class TimeStampedModel(models.Model):
 
     class Meta:
         abstract = True
+        ordering = ["-_created_at"]
 
     @property
     def created_at(self):

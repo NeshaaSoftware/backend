@@ -87,7 +87,8 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 [tool.ruff.lint.per-file-ignores]
 "**/migrations/*" = ["ALL"]
 "**/settings/*" = ["F405", "F403"]  # Allow * imports in settings
-"**/populate_db.py" = ["S106"]
+"**/populate_db.py" = ["S106", "T201"]
 "manage.py" = ["T20"]
+"notebooks/*" = ["ALL"]  # Ignore notebooks
 "**/tests.py" = ["S101"]  # Allow assert in tests
 "**/test_*.py" = ["S101"]  # Allow assert in tests

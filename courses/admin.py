@@ -1,10 +1,10 @@
 from django.contrib import admin
-from django.db.models import Q, Value, CharField, F, Case, When
+from django.db.models import Case, CharField, Q, Value, When
 from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin
 
-from .models import Attendence, Course, CourseSession, Registration
+from .models import Attendance, Course, CourseSession, CourseType, Registration
 
 
 class CourseSessionInline(admin.TabularInline):
@@ -29,16 +29,13 @@ class CourseTextInputFilter(admin.SimpleListFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value:
-            # Annotate with course_type_display for searching
-            course_type_choices = dict(Course.COURSE_TYPE_CHOICES)
+            course_type_choices = dict(CourseType.objects.values_list("id", "name"))
             whens = [When(course__course_type=k, then=Value(v)) for k, v in course_type_choices.items()]
-            queryset = queryset.annotate(
-                course_type_display=Case(*whens, output_field=CharField())
-            )
+            queryset = queryset.annotate(course_type_display=Case(*whens, output_field=CharField()))
             return queryset.filter(
-                Q(course__number__icontains=value) |
-                Q(course__name__icontains=value) |
-                Q(course_type_display__icontains=value)
+                Q(course__number__icontains=value)
+                | Q(course__name__icontains=value)
+                | Q(course_type_display__icontains=value)
             )
         return queryset
 
@@ -52,21 +49,20 @@ class CourseAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "name",
         "course_type",
         "number",
-        "price",
         "_created_at",
     ]
     list_filter = ["course_type", "_created_at"]
     search_fields = ["course_type", "number"]
     readonly_fields = ["_created_at", "_updated_at", "name"]
-    filter_horizontal = ["managing_users", "assisting_users", "instructors"]
+    filter_horizontal = ["managing_users", "supporting_users", "instructors"]
     inlines = [CourseSessionInline]
-    autocomplete_fields = ["managing_users", "assisting_users", "instructors"]
+    autocomplete_fields = ["managing_users", "supporting_users", "instructors"]
     fieldsets = (
         (
             "Course Information",
-            {"fields": ("course_type", "number", "name", "price")},
+            {"fields": ("course_type", "number", "name", "price", "start_date", "end_date")},
         ),
-        ("Administration", {"fields": ("managing_users", "assisting_users", "instructors")}),
+        ("Administration", {"fields": ("managing_users", "supporting_users", "instructors")}),
         (
             "Timestamps",
             {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
@@ -74,9 +70,8 @@ class CourseAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        # Prefetch related users for performance
         qs = super().get_queryset(request)
-        return qs.prefetch_related("managing_users", "assisting_users", "instructors")
+        return qs.prefetch_related("managing_users", "supporting_users", "instructors")
 
 
 @admin.register(CourseSession)
@@ -121,12 +116,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "user",
         "course",
         "status",
-        "assistant",
+        "support_user",
         "payment_status",
-        "payment_amount",
+        "tuition",
         "next_payment_date",
         "registration_date",
-        "notes",
+        "description",
+        "payment_description",
         "_created_at",
         "_updated_at",
     ]
@@ -141,7 +137,6 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "course__number",
         "course__course_type",
         "user__phone_number",
-        "notes",
     ]
     readonly_fields = [
         "user",
@@ -150,17 +145,17 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "_created_at",
         "_updated_at",
     ]
-    autocomplete_fields = ["user", "course", "assistant"]
+    autocomplete_fields = ["support_user"]
     fieldsets = (
         (
             "Registration Information",
-            {"fields": ("user", "course", "status", "registration_date", "assistant")},
+            {"fields": ("user", "course", "status", "registration_date", "support_user")},
         ),
         (
             "Payment Information",
-            {"fields": ("payment_status", "payment_amount", "next_payment_date")},
+            {"fields": ("payment_status", "tuition", "next_payment_date", "payment_description")},
         ),
-        ("Additional Information", {"fields": ("notes",)}),
+        ("Additional Information", {"fields": ("description",)}),
         (
             "Timestamps",
             {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
@@ -172,7 +167,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         user = request.user
         if user.is_superuser:
             return fieldsets
-        if obj and obj.course in user.managed_courses.all():
+        if obj and user.managed_courses.filter(id=obj.course.id).exists():
             return fieldsets
         filtered_fieldsets = []
         for name, options in fieldsets:
@@ -197,13 +192,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         return [field for field in list_filter if field != "payment_status"]
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("user", "course", "assistant")
+        qs = super().get_queryset(request).select_related("user", "course", "support_user")
         user = request.user
         if user.is_superuser:
             return qs
         managed_courses = user.managed_courses.all()
         if managed_courses.exists():
-            return qs.filter(Q(course__in=managed_courses) | Q(assistant=user))
+            return qs.filter(Q(course__in=managed_courses) | Q(support_user=user))
         return qs.filter(user=user)
 
     def has_view_permission(self, request, obj=None):
@@ -212,7 +207,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
             return True
         if obj is None:
             return True
-        if obj.course in user.managed_courses.all() or obj.assistant == user or obj.user == user:
+        if obj.course in user.managed_courses.all() or obj.support_user == user or obj.user == user:
             return True
 
     def has_change_permission(self, request, obj=None):
@@ -221,7 +216,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
             return True
         if obj is None:
             return True
-        if obj.course in user.managed_courses.all() or obj.assistant == user or obj.user == user:
+        if obj.course in user.managed_courses.all() or obj.support_user == user or obj.user == user:
             return True
 
     def has_delete_permission(self, request, obj=None):
@@ -233,7 +228,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         return obj.course in user.managed_courses.all()
 
 
-@admin.register(Attendence)
+@admin.register(Attendance)
 class AttendenceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     list_display = [
         "user",
@@ -255,3 +250,11 @@ class AttendenceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         # Select related user and session for performance
         qs = super().get_queryset(request)
         return qs.select_related("user", "session")
+
+
+@admin.register(CourseType)
+class CourseTypeAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+    list_display = ["name", "name_fa", "category", "description", "_created_at", "_updated_at"]
+    search_fields = ["name", "name_fa", "description"]
+    list_filter = ["category"]
+    readonly_fields = ["_created_at", "_updated_at"]

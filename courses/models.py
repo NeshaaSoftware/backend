@@ -6,23 +6,56 @@ from django_jalali.db import models as jmodels
 from commons.models import TimeStampedModel
 from users.models import User
 
+STATUS_CHOICES: ClassVar[list[tuple[int, str]]] = [
+    (1, "در انتظار ثبت‌نام"),
+    (2, "انصراف پیش از دوره"),
+    (3, "انتخاب نماندن"),
+    (4, "ترک دوره"),
+    (5, "حاضر در دوره"),
+    (6, "اخراج از دوره"),
+    (7, "تیم اجرایی"),
+    (8, "مهمان"),
+    (9, "تکمیل دوره"),
+]
+Payment_STATUS_CHOICES: ClassVar[list[tuple[int, str]]] = [
+    (1, "عدم سررسید"),
+    (2, "در انتظار پرداخت"),
+    (3, "تسویه"),
+]
+PAYMENT_TYPE_CHOICES: ClassVar[list[tuple[int, str]]] = [
+    (1, "نقدی"),
+    (2, "اقساطی"),
+    (3, "رایگان"),
+    (4, "سازمانی"),
+]
+
+
+class CourseType(TimeStampedModel):
+    name = models.CharField(max_length=100, unique=True)
+    name_fa = models.CharField(max_length=100, unique=True, blank=True)
+    category = models.IntegerField(
+        choices=[
+            (1, "دوره"),
+            (2, "پویش"),
+            (3, "دیدار"),
+            (4, "سمینار"),
+        ],
+        default=1,
+        db_index=True,
+    )
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name_fa or self.name
+
 
 class Course(TimeStampedModel):
-    """Course information and details"""
-
-    COURSE_TYPE_CHOICES: ClassVar[list[tuple[int, str]]] = [
-        (1, "دوره‌های پیشوایی"),
-        (2, "دوره‌های رابطه"),
-        (3, "دوره‌های مواجهه"),
-        (4, "تحویل سال دگرگون"),
-        (5, "جان کلام"),
-        (6, "پویش"),
-        (7, "پیله"),
-    ]
-
-    course_type = models.IntegerField(choices=COURSE_TYPE_CHOICES, default="دوره‌های پیشوایی")
-    number = models.IntegerField()
-    price = models.JSONField(blank=True, null=True, db_index=True)
+    course_type = models.ForeignKey(CourseType, on_delete=models.CASCADE, related_name="courses", db_index=True)
+    course_name = models.CharField(max_length=100, blank=True, null=True)
+    number = models.IntegerField(db_index=True)
+    price = models.JSONField(blank=True, default=dict)
+    start_date = jmodels.jDateTimeField(blank=True, null=True)
+    end_date = jmodels.jDateTimeField(blank=True, null=True)
     instructors = models.ManyToManyField(
         User,
         blank=True,
@@ -34,18 +67,15 @@ class Course(TimeStampedModel):
         blank=True,
         related_name="managed_courses",
     )
-
-    assisting_users = models.ManyToManyField(
+    supporting_users = models.ManyToManyField(
         User,
         blank=True,
-        related_name="assisted_courses",
+        related_name="supported_courses",
     )
 
     class Meta:
-        verbose_name = "Course"
-        verbose_name_plural = "Courses"
-        ordering: ClassVar[list[str]] = ["-_created_at"]
-        unique_together: ClassVar[list[list[str]]] = ["course_type", "number"]
+        ordering = ["-_created_at"]
+        unique_together = ["course_type", "number"]
 
     @property
     def instructors_names(self):
@@ -53,15 +83,13 @@ class Course(TimeStampedModel):
 
     @property
     def name(self):
-        return f"{self.get_course_type_display()} - {self.number}"
+        return f"{self.course_name}"
 
     def __str__(self):
-        return f"{self.name}"
+        return self.name
 
 
 class CourseSession(TimeStampedModel):
-    """Course session component"""
-
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="sessions")
     session_name = models.CharField(max_length=100)
     start_date = jmodels.jDateTimeField()
@@ -70,45 +98,40 @@ class CourseSession(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Course Session"
-        verbose_name_plural = "Course Sessions"
-        ordering: ClassVar[list[str]] = ["start_date"]
+        ordering = ["start_date"]
 
     def __str__(self):
-        return f"{self.course.name} - {self.session_name}"
+        return f"{self.session_name} ({self.course})"
 
 
 class Registration(TimeStampedModel):
-    STATUS_CHOICES: ClassVar[list[tuple[str, str]]] = [
-        (1, "Pending"),
-        (2, "Confirmed"),
-        (3, "Cancelled"),
-        (4, "Completed"),
-    ]
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="registration")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="registrations")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="registrations")
     status = models.IntegerField(choices=STATUS_CHOICES, default=1)
     registration_date = jmodels.jDateTimeField(auto_now_add=True)
-    payment_status = models.BooleanField(default=False)
-    payment_amount = models.IntegerField(default=0)
+    tuition = models.IntegerField(default=0, help_text="تومان")
+    payment_status = models.IntegerField(choices=Payment_STATUS_CHOICES, default=3)
+    payment_type = models.IntegerField(choices=PAYMENT_TYPE_CHOICES, default=1)
     next_payment_date = jmodels.jDateTimeField(blank=True, null=True)
-    assistant = models.ForeignKey(
-        User, on_delete=models.SET_NULL, related_name="assisted_registrations", blank=True, null=True
+    support_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, related_name="supported_registrations", blank=True, null=True
     )
-    notes = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    payment_description = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Registration"
-        verbose_name_plural = "Registrations"
-        ordering: ClassVar[list[str]] = ["-registration_date"]
-        unique_together: ClassVar[list[list[str]]] = [["user", "course"]]
+        ordering = ["-registration_date"]
+        unique_together = ["user", "course"]
+
+    @property
+    def status_display(self):
+        return dict(STATUS_CHOICES)[self.status]
 
     def __str__(self):
-        return f"{self.user.full_name or self.user.phone_number} - {self.course.name}"
+        return f"{self.user} - {self.course} ({self.status_display})"
 
 
-class Attendence(TimeStampedModel):
+class Attendance(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="attendances")
     session = models.ForeignKey(CourseSession, on_delete=models.CASCADE, related_name="attendances")
     attended_at = jmodels.jDateTimeField(auto_now_add=True)
@@ -116,8 +139,8 @@ class Attendence(TimeStampedModel):
     class Meta:
         verbose_name = "Attendance"
         verbose_name_plural = "Attendances"
-        ordering: ClassVar[list[str]] = ["-attended_at"]
-        unique_together: ClassVar[list[list[str]]] = [["user", "session"]]
+        ordering = ["-attended_at"]
+        unique_together = ["user", "session"]
 
     def __str__(self):
         return f"{self.user.full_name or self.user.phone_number} - {self.session.session_name}"

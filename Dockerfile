@@ -16,4 +16,5 @@ COPY . .
 ENV DJANGO_ENV=production
 RUN python manage.py collectstatic --noinput
 
+EXPOSE 8000
 CMD ["/bin/sh", "-c", "python manage.py migrate --noinput && gunicorn neshaa.wsgi:application --bind 0.0.0.0:8000"]

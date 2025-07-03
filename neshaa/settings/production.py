@@ -7,7 +7,7 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "neshaa.ir").split(",")
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django.db.backends.mysql",
         "NAME": "neshaa_production",
         "USER": os.getenv("DB_USER", "prod_user"),
         "PASSWORD": os.getenv("DB_PASSWORD", "prod_password"),

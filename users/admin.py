@@ -1,5 +1,3 @@
-from typing import ClassVar
-
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
@@ -18,7 +16,7 @@ class CrmLogInline(admin.TabularInline):
 
 @admin.register(User)
 class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "phone_number",
         "username",
@@ -29,7 +27,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         "is_active",
         "_created_at",
     ]
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "gender",
         "education",
         "is_active",
@@ -37,7 +35,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         "is_superuser",
         "_created_at",
     ]
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "email",
         "username",
         "first_name",
@@ -45,7 +43,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         "phone_number",
         "telegram_id",
     ]
-    readonly_fields: ClassVar[list[str]] = ["_created_at", "_updated_at", "date_joined", "last_login"]
+    readonly_fields = ["_created_at", "_updated_at", "date_joined", "last_login"]
     ordering = ["-_created_at"]
 
     # Extend the default UserAdmin fieldsets

@@ -7,13 +7,13 @@ from phonenumber_field.modelfields import PhoneNumberField
 
 from commons.models import TimeStampedModel
 
-GENDER_CHOICES: ClassVar[list[tuple[int, str]]] = [
+GENDER_CHOICES = [
     (1, "Male"),
     (2, "Female"),
     (3, "Other"),
 ]
 
-EDUCATION_CHOICES: ClassVar[list[tuple[int, str]]] = [
+EDUCATION_CHOICES = [
     (1, "High School"),
     (2, "Associate Degree"),
     (3, "Bachelor's Degree"),

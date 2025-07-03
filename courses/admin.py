@@ -174,8 +174,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
             if name == "Payment Information":
                 continue
             filtered_fieldsets.append((name, options))
-
-        return tuple(filtered_fieldsets)
+        return [tuple(filtered_fieldsets)]
 
     def get_list_display(self, request):
         list_display = super().get_list_display(request)
@@ -209,6 +208,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
             return True
         if obj.course in user.managed_courses.all() or obj.support_user == user or obj.user == user:
             return True
+        return False
 
     def has_change_permission(self, request, obj=None):
         user = request.user
@@ -218,6 +218,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
             return True
         if obj.course in user.managed_courses.all() or obj.support_user == user or obj.user == user:
             return True
+        return False
 
     def has_delete_permission(self, request, obj=None):
         user = request.user

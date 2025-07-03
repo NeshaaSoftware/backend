@@ -6,12 +6,12 @@ from commons.models import DetailedLog
 
 
 class DetailedLogAdminMixin:
-    def log_django_admin_action(self, request, obj, action_flag, change_message=None):
+    def log_django_admin_action(self, request, object, action_flag, change_message=None):
         LogEntry.objects.log_action(
             user_id=request.user.pk if request.user.is_authenticated else None,
-            content_type_id=ContentType.objects.get_for_model(obj.__class__).pk,
-            object_id=obj.pk,
-            object_repr=str(obj),
+            content_type_id=ContentType.objects.get_for_model(object.__class__).pk,
+            object_id=object.pk,
+            object_repr=str(object),
             action_flag=action_flag,
             change_message=change_message or "",
         )
@@ -24,28 +24,28 @@ class DetailedLogAdminMixin:
             self.custom_old_values = None
         super().save_model(request, obj, form, change)
 
-    def log_addition(self, request, obj, message):
+    def log_addition(self, request, object, message):
         from commons.models import DetailedLog
 
-        self.custom_new_values = {f.name: getattr(obj, f.name) for f in obj._meta.fields}
+        self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
 
         return DetailedLog.objects.create(
             user_id=request.user.pk,
-            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
-            object_id=obj.pk,
-            object_repr=str(obj)[:200],
+            content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
+            object_id=object.pk,
+            object_repr=str(object)[:200],
             action_flag=ADDITION,
             change_message=message or "",
             old_values={},
             changed_values=self.custom_new_values,
         )
 
-    def log_change(self, request, obj, message):
+    def log_change(self, request, object, message):
         from django.contrib.admin.models import CHANGE
 
         from commons.models import DetailedLog
 
-        self.custom_new_values = {f.name: getattr(obj, f.name) for f in obj._meta.fields}
+        self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
         self.custom_changed_values = []
         for k in self.custom_new_values:
             if self.custom_old_values[k] != self.custom_new_values[k]:
@@ -53,16 +53,16 @@ class DetailedLogAdminMixin:
 
         return DetailedLog.objects.create(
             user_id=request.user.pk,
-            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
-            object_id=obj.pk,
-            object_repr=str(obj)[:200],
+            content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
+            object_id=object.pk,
+            object_repr=str(object)[:200],
             action_flag=CHANGE,
             change_message=message or "",
             old_values=self.custom_old_values,
             changed_values=self.custom_changed_values,
         )
 
-    def log_deletion(self, request, obj, object_repr):
+    def log_deletion(self, request, object, object_repr):
         import warnings
 
         from django.utils.deprecation import RemovedInDjango60Warning
@@ -82,12 +82,12 @@ class DetailedLogAdminMixin:
 
         return DetailedLog.objects.create(
             user_id=request.user.pk,
-            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
-            object_id=obj.pk,
-            object_repr=str(obj)[:200],
+            content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
+            object_id=object.pk,
+            object_repr=str(object)[:200],
             action_flag=DELETION,
             old_values={},
-            changed_values={f.name: getattr(obj, f.name) for f in obj._meta.fields},
+            changed_values={f.name: getattr(object, f.name) for f in object._meta.fields},
         )
 
     def log_deletions(self, request, queryset):

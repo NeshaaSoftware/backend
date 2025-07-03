@@ -191,7 +191,6 @@ db.sqlite3-journal
 
 # Static files
 /staticfiles/
-/static/
 static_root/
 
 # Media files

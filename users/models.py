@@ -42,7 +42,7 @@ class User(AbstractUser, TimeStampedModel):
     english_first_name = models.CharField(max_length=50, blank=True, db_index=True)
     english_last_name = models.CharField(max_length=50, blank=True, db_index=True)
     referer = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="referrals")
-    referer_name = models.CharField(max_length=100, blank=True, null=True)
+    referer_name = models.CharField(max_length=100, blank=True)
     national_id = models.CharField(max_length=10, blank=True, null=True)
     country = models.CharField(max_length=50, blank=True, null=True)
     city = models.CharField(max_length=50, blank=True, null=True)

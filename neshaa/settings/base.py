@@ -68,9 +68,9 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Asia/Tehran"
 USE_I18N = True
 USE_TZ = True
+TIME_ZONE = "Asia/Tehran"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -81,8 +81,6 @@ STATICFILES_DIRS = [
 # Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom User Model
 AUTH_USER_MODEL = "users.User"
@@ -160,3 +158,15 @@ JALALI_SETTINGS = {
 
 SHELL_PLUS = "ipython"  # Or "bpython" or "ptpython"
 SHELL_PLUS_PRINT_SQL = True  # To print SQL queries executed by Django ORM
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Security settings for production
+# SECURE_HSTS_SECONDS = 31536000  # 1 year
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
+# SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True

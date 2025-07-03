@@ -28,7 +28,7 @@ def block_other_urls(request, *args, **kwargs):
 
 urlpatterns = [
     path("ndash/", admin.site.urls),
+    path("readiness/", readiness_probe, name="readiness-probe"),
     path("", block_other_urls),  # Block root
     path("<path:resource>", block_other_urls),  # Block all other URLs
-    path("readiness/", readiness_probe, name="readiness-probe"),
 ]

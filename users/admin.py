@@ -58,14 +58,26 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
                     "last_name",
                     "gender",
                     "age",
+                    "birth_date",
                     "education",
+                    "profession",
+                    "english_first_name",
+                    "english_last_name",
                     "description",
                 )
             },
         ),
         (
             "Contact Information",
-            {"fields": ("phone_number", "telegram_id")},
+            {"fields": ("phone_number", "more_phone_numbers", "telegram_id")},
+        ),
+        (
+            "Referral & National Info",
+            {"fields": ("referer", "referer_name", "national_id")},
+        ),
+        (
+            "Location & Organization",
+            {"fields": ("country", "city", "orgnization")},
         ),
         (
             "Permissions",

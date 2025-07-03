@@ -8,18 +8,17 @@ from phonenumber_field.modelfields import PhoneNumberField
 from commons.models import TimeStampedModel
 
 GENDER_CHOICES = [
-    (1, "Male"),
-    (2, "Female"),
-    (3, "Other"),
+    (1, "مرد"),
+    (2, "زن"),
+    (3, "دیگر"),
 ]
 
 EDUCATION_CHOICES = [
-    (1, "High School"),
-    (2, "Associate Degree"),
-    (3, "Bachelor's Degree"),
-    (4, "Master's Degree"),
-    (5, "PhD"),
-    (6, "Other"),
+    (1, "کمتر از کارشناسی"),
+    (2, "کارشناسی"),
+    (3, "کارشناسی ارشد"),
+    (4, "دکتری"),
+    (5, "دیگر"),
 ]
 
 CRM_USER_STATUS_CHOICES = [
@@ -40,8 +39,8 @@ class User(AbstractUser, TimeStampedModel):
     birth_date = models.DateField(blank=True, null=True)
     education = models.IntegerField(choices=EDUCATION_CHOICES, blank=True, null=True)
     profession = models.CharField(max_length=100, blank=True, null=True)
-    english_first_name = models.CharField(max_length=50, blank=True, null=True, db_index=True)
-    english_last_name = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    english_first_name = models.CharField(max_length=50, blank=True, db_index=True)
+    english_last_name = models.CharField(max_length=50, blank=True, db_index=True)
     referer = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="referrals")
     referer_name = models.CharField(max_length=100, blank=True, null=True)
     national_id = models.CharField(max_length=10, blank=True, null=True)

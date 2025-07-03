@@ -3,7 +3,7 @@ import os
 from .base import *
 
 DEBUG = True
-ALLOWED_HOSTS = ["neshaa.ir", "localhost"]
+ALLOWED_HOSTS = ["api.neshaa.ir", "localhost"]
 
 DATABASES = {
     "default": {

@@ -49,9 +49,11 @@ class CourseAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "name",
         "course_type",
         "number",
+        "start_date",
+        "price",
         "_created_at",
     ]
-    list_filter = ["course_type", "_created_at"]
+    list_filter = ["course_type", "number", "start_date", CourseTextInputFilter]
     search_fields = ["course_type", "number"]
     readonly_fields = ["_created_at", "_updated_at", "name"]
     filter_horizontal = ["managing_users", "supporting_users", "instructors"]
@@ -133,10 +135,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         CourseTextInputFilter,
     ]
     search_fields = [
-        "user__full_name",
-        "course__number",
-        "course__course_type",
         "user__phone_number",
+        "course__number",
+        "course__course_type__name",
     ]
     readonly_fields = [
         "user",

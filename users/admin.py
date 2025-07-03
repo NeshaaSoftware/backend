@@ -132,6 +132,7 @@ class CrmUserAdmin(admin.ModelAdmin):
         "user__telegram_id",
     )
     inlines = [CrmLogInline]
+    list_filter = ("support_user", "last_follow_up", "next_follow_up")
     fieldsets = (
         (
             None,

@@ -1,9 +1,8 @@
-import re
+from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django.db.models import Q
-from django.utils.translation import gettext_lazy as _
-from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
+from django.forms.models import BaseInlineFormSet
 
 from commons.admin import DetailedLogAdminMixin
 
@@ -115,19 +114,19 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             queryset = queryset.filter(is_staff=True)
         return super().get_search_results(request, queryset, search_term)
 
-
-class CrmLogInline(admin.TabularInline):
+class CrmLogInline(DetailedLogAdminMixin, admin.TabularInline):
     model = CrmLog
     extra = 1
-    fields = ("description", "action", "date")
+    fields = ("id", "description", "action", "date", "user", "_created_at")
+    readonly_fields = ("user", "_created_at")
     show_change_link = True
     
-    # def get_readonly_fields(self, request, obj=None):
-    #     read_only = ["_created_at", "_updated_at", "user", "last_follow_up"]
-    #     print("objects is ", obj, obj.id)
-    #     if obj.id is None or obj.user == request.user:
-    #         return read_only
-    #     return read_only + ["description", "action"]
+    def has_view_or_change_permission(self, request, obj=None):
+        print("Weeeeeee")
+        print(request)
+        print(obj.id if hasattr(obj, "id") else "No Object")
+        print(self)
+        return super().has_view_or_change_permission(request, obj)
 
 
 @admin.register(CrmUser)
@@ -168,7 +167,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     def save_formset(self, request, form, formset, change):
         for form in formset.forms:
             if hasattr(form, "instance") and isinstance(form.instance, CrmLog):
-                if not form.instance.pk:
+                if form.has_changed():
                     form.instance.user = request.user
         super().save_formset(request, form, formset, change)
 

@@ -1,11 +1,11 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django.contrib import admin
-from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
 from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
-from .models import Attendance, Course, CourseSession, CourseType, Registration, User
+
+from .models import Attendance, Course, CourseSession, CourseType, Registration
 
 
 class CourseSessionInline(admin.TabularInline):
@@ -17,6 +17,7 @@ class CourseSessionInline(admin.TabularInline):
         "end_date",
         "location",
     ]
+
 
 @admin.register(Course)
 class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
@@ -30,13 +31,12 @@ class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     ]
     list_filter = [
         ("course_type", DALFRelatedFieldAjax),
-        ("number" , DropdownFilter),
+        ("number", DropdownFilter),
         ("supporting_users", DALFRelatedFieldAjax),
     ]
     search_fields = ["course_type__name_fa", "number", "course_name"]
     readonly_fields = ["_created_at", "_updated_at"]
     inlines = [CourseSessionInline]
-    filter_horizontal = ["instructors", "supporting_users", "managing_users",]
     list_select_related = True
     ordering = ["-id"]
     autocomplete_fields = ["instructors", "supporting_users", "managing_users"]
@@ -51,7 +51,7 @@ class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             {"fields": ("_created_at", "_updated_at")},
         ),
     )
-    
+
     # def formfield_for_manytomany(self, db_field, request, **kwargs):
     #     if db_field.name in ["instructors", "supporting_users", "managing_users"]:
     #         kwargs["queryset"] = User.objects.filter(is_staff=True)
@@ -60,6 +60,7 @@ class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.prefetch_related("managing_users", "supporting_users", "instructors")
+
 
 @admin.register(CourseSession)
 class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
@@ -181,7 +182,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         user = request.user
         if user.is_superuser:
             return qs
-        return qs.filter(Q(course__managing_users=user) | Q(course__supporting_users=user) | Q(supporting_user=user) | Q(user=user)).distinct()
+        return qs.filter(
+            Q(course__managing_users=user) | Q(course__supporting_users=user) | Q(supporting_user=user) | Q(user=user)
+        ).distinct()
 
     def _has_registration_permission(self, request, obj=None):
         user = request.user
@@ -196,7 +199,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return self._has_registration_permission(request, obj)
-    
+
     def has_delete_permission(self, request, obj=None):
         user = request.user
         if user.is_superuser:

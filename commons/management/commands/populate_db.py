@@ -85,7 +85,7 @@ class Command(BaseCommand):
             if i + 1 in done_crms:
                 continue
             CrmUser.objects.create(
-                user_id=i+1,
+                user_id=i + 1,
                 status=1,
                 last_follow_up=timezone.now(),
                 next_follow_up=timezone.now() + timezone.timedelta(days=i % 10),
@@ -105,7 +105,18 @@ class Command(BaseCommand):
         Course.objects.get(course_type=1, number=3).supporting_users.add(user1)
         if not Group.objects.filter(name="supporting").exists():
             group_supporting = Group.objects.create(name="supporting")
-            permissions_code = ["add_registration", "change_registration", "view_registration", "view_course", "view_crmuser", "view_crmuser", "view_user", "view_crmlog", "add_crmlog", "change_crmlog"]
+            permissions_code = [
+                "add_registration",
+                "change_registration",
+                "view_registration",
+                "view_course",
+                "view_crmuser",
+                "view_crmuser",
+                "view_user",
+                "view_crmlog",
+                "add_crmlog",
+                "change_crmlog",
+            ]
             group_supporting.permissions.set(Permission.objects.filter(codename__in=permissions_code))
             user1.groups.add(group_supporting)
             user2.groups.add(group_supporting)

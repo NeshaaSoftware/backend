@@ -1,39 +1,41 @@
+from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django.contrib import admin
+from django.contrib.admin.filters import (
+    AllValuesFieldListFilter,
+    ChoicesFieldListFilter,
+    RelatedFieldListFilter,
+    RelatedOnlyFieldListFilter,
+    SimpleListFilter,
+)
 from django.contrib.admin.models import ADDITION, LogEntry
 from django.contrib.contenttypes.models import ContentType
 
 from commons.models import DetailedLog
 
-from django.contrib.admin.filters import (
-    SimpleListFilter,
-    AllValuesFieldListFilter,
-    ChoicesFieldListFilter,
-    RelatedFieldListFilter,
-    RelatedOnlyFieldListFilter
-)
-
 
 class SimpleDropdownFilter(SimpleListFilter):
-    template = 'admin/dropdown_filter.html'
+    template = "admin/dropdown_filter.html"
 
 
 class DropdownFilter(AllValuesFieldListFilter):
-   template = 'admin/dropdown_filter.html'
+    template = "admin/dropdown_filter.html"
 
 
 class ChoiceDropdownFilter(ChoicesFieldListFilter):
-   template = 'admin/dropdown_filter.html'
+    template = "admin/dropdown_filter.html"
 
 
 class RelatedDropdownFilter(RelatedFieldListFilter):
-   template = 'admin/dropdown_filter.html'
+    template = "admin/dropdown_filter.html"
 
 
 class RelatedOnlyDropdownFilter(RelatedOnlyFieldListFilter):
-   template = 'admin/dropdown_filter.html'
+    template = "admin/dropdown_filter.html"
+
 
 class DetailedLogAdminMixin:
     save_on_top = True
+
     def log_django_admin_action(self, request, object, action_flag, change_message=None):
         LogEntry.objects.log_action(
             user_id=request.user.pk if request.user.is_authenticated else None,
@@ -156,11 +158,11 @@ class DetailedLogAdminMixin:
 
 
 @admin.register(DetailedLog)
-class DetailedLogAdmin(admin.ModelAdmin):
+class DetailedLogAdmin(DALFModelAdmin):
     list_display = ("action_time", "user", "content_type", "object_repr", "action_flag", "change_message")
-    list_filter = ("action_time", "user", "action_flag")
+    list_filter = ("action_time", ("user", DALFRelatedFieldAjax), "action_flag")
     search_fields = ("object_repr", "change_message")
-    date_hierarchy = "action_time"
+    autocomplete_fields = ("user",)
 
     readonly_fields = [
         "action_time",

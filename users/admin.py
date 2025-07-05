@@ -1,8 +1,6 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
-from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django.forms.models import BaseInlineFormSet
 
 from commons.admin import DetailedLogAdminMixin
 
@@ -108,11 +106,12 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             },
         ),
     )
-    
+
     def get_search_results(self, request, queryset, search_term):
         if request.GET.get("field_name") in ["supporting_user", "supporting_users", "managing_users", "instructors"]:
             queryset = queryset.filter(is_staff=True)
         return super().get_search_results(request, queryset, search_term)
+
 
 class CrmLogInline(DetailedLogAdminMixin, admin.TabularInline):
     model = CrmLog
@@ -120,13 +119,6 @@ class CrmLogInline(DetailedLogAdminMixin, admin.TabularInline):
     fields = ("id", "description", "action", "date", "user", "_created_at")
     readonly_fields = ("user", "_created_at")
     show_change_link = True
-    
-    def has_view_or_change_permission(self, request, obj=None):
-        print("Weeeeeee")
-        print(request)
-        print(obj.id if hasattr(obj, "id") else "No Object")
-        print(self)
-        return super().has_view_or_change_permission(request, obj)
 
 
 @admin.register(CrmUser)

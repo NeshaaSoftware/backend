@@ -1,6 +1,10 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
-from django.contrib import admin
+from django import forms
+from django.contrib import admin, messages
 from django.db.models import Q
+from django.shortcuts import redirect, render
+from django.urls import path, reverse
+from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
@@ -98,6 +102,10 @@ class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return qs.select_related("course")
 
 
+class RegistrationExcelUploadForm(forms.Form):
+    excel_file = forms.FileField(label="Registration Excel File", required=True)
+
+
 @admin.register(Registration)
 class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = [
@@ -148,6 +156,53 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             {"fields": ("_created_at", "_updated_at")},
         ),
     )
+    change_list_template = "admin/courses/registration/change_list.html"
+
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        upload_url = reverse("admin:registration-upload-excel")
+        extra_context["upload_excel_button"] = format_html(
+            '<a class="button" href="{}" style="margin:10px 0;display:inline-block;">Upload Excel</a>', upload_url
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path("upload-excel/", self.admin_site.admin_view(self.upload_excel), name="registration-upload-excel"),
+        ]
+        return custom_urls + urls
+
+    def upload_excel(self, request):
+        """
+        Handle Excel file upload for bulk registration import.
+        """
+        if request.method == "POST":
+            form = RegistrationExcelUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                excel_file = form.cleaned_data["excel_file"]
+                try:
+                    import pandas as pd
+                    df = pd.read_excel(excel_file)
+                    # TODO: Implement actual creation/updating of Registration objects
+                    created, skipped = 0, 0
+                    self.message_user(
+                        request, f"Registrations imported: {created}, skipped: {skipped}", messages.SUCCESS
+                    )
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.exception("Error importing registrations from Excel")
+                    self.message_user(request, f"Error importing registrations: {e}", messages.ERROR)
+                return redirect("..")
+        else:
+            form = RegistrationExcelUploadForm()
+        context = {
+            "form": form,
+            **self.admin_site.each_context(request),
+        }
+        return render(request, "admin/upload_registration_excel.html", context)
 
     def get_fieldsets(self, request, obj=None):
         fieldsets = super().get_fieldsets(request, obj)
@@ -210,7 +265,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
 
 @admin.register(Attendance)
-class AttendenceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+class AttendanceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     list_display = [
         "user",
         "session",

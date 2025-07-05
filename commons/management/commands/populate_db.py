@@ -1,6 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from users.models import CrmUser
+
 
 class Command(BaseCommand):
     help = "Populate the database with initial or test data."
@@ -19,7 +21,7 @@ class Command(BaseCommand):
         users = [
             User(
                 username=f"testuser{i}",
-                phone_number="+9891200000" + str(i + 1),
+                phone_number="+9891200" + str(10000 + i),
                 password="testpass",
                 first_name=f"Test{i}",
                 last_name="User",
@@ -48,13 +50,13 @@ class Command(BaseCommand):
         done_sessions = dict.fromkeys(CourseSession.objects.values_list("session_name", flat=True), True)
         sessions = [
             CourseSession(
-                course_id=i // 1000 + 1,
-                session_name=f"Session {i + 1}",
+                course_id=i // 10 + 1,
+                session_name=f"Session {i % 10 + 1}",
                 start_date=timezone.now(),
                 end_date=timezone.now() + timezone.timedelta(days=i),
                 location="Location " + str(i + 1),
             )
-            for i in range(50000)
+            for i in range(3000)
             if f"Session {i + 1}" not in done_sessions
         ]
         if sessions:
@@ -78,6 +80,19 @@ class Command(BaseCommand):
         print("Registrations created:", Registration.objects.count())
         user1 = User.objects.get(username="testuser1")
         user2 = User.objects.get(username="testuser2")
+        done_crms = dict.fromkeys(CrmUser.objects.values_list("id", flat=True), True)
+        for i in range(200):
+            if i + 1 in done_crms:
+                continue
+            CrmUser.objects.create(
+                user_id=i+1,
+                status=1,
+                last_follow_up=timezone.now(),
+                next_follow_up=timezone.now() + timezone.timedelta(days=i % 10),
+                joined_main_group=True,
+            )
+        CrmUser.objects.filter(id__lte=200).update(supporting_user=user2)
+        CrmUser.objects.filter(id__lte=100).update(supporting_user=user1)
         user1.is_staff = True
         user1.set_password("testpass")
         user1.save()
@@ -88,14 +103,14 @@ class Command(BaseCommand):
         Course.objects.get(course_type=1, number=1).instructors.add(user1)
         Course.objects.get(course_type=1, number=2).managing_users.add(user1)
         Course.objects.get(course_type=1, number=3).supporting_users.add(user1)
-        if not Group.objects.filter(name="assisting").exists():
-            group_assist = Group.objects.create(name="assisting")
-            permissions_code = ["add_registration", "change_registration", "view_registration", "view_course"]
-            group_assist.permissions.set(Permission.objects.filter(codename__in=permissions_code))
-            user1.groups.add(group_assist)
-            user2.groups.add(group_assist)
+        if not Group.objects.filter(name="supporting").exists():
+            group_supporting = Group.objects.create(name="supporting")
+            permissions_code = ["add_registration", "change_registration", "view_registration", "view_course", "view_crmuser", "view_crmuser", "view_user", "view_crmlog", "add_crmlog", "change_crmlog"]
+            group_supporting.permissions.set(Permission.objects.filter(codename__in=permissions_code))
+            user1.groups.add(group_supporting)
+            user2.groups.add(group_supporting)
         registrations = Registration.objects.select_related("user").filter(course_id=3)
         for registration in registrations:
-            registration.support_user = user1 if registration.user_id % 2 == 0 else user2
+            registration.supporting_user = user1 if registration.user_id % 2 == 0 else user2
             registration.save()
         print("Users updated with roles and permissions.", registrations.count())

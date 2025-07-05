@@ -1,10 +1,11 @@
+from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django.contrib import admin
-from django.db.models import Case, CharField, Q, Value, When
+from django.contrib.admin import SimpleListFilter
+from django.db.models import Q
 from django_jalali.admin.filters import JDateFieldListFilter
 
-from commons.admin import DetailedLogAdminMixin
-
-from .models import Attendance, Course, CourseSession, CourseType, Registration
+from commons.admin import DetailedLogAdminMixin, DropdownFilter
+from .models import Attendance, Course, CourseSession, CourseType, Registration, User
 
 
 class CourseSessionInline(admin.TabularInline):
@@ -17,67 +18,51 @@ class CourseSessionInline(admin.TabularInline):
         "location",
     ]
 
-
-class CourseTextInputFilter(admin.SimpleListFilter):
-    title = "Course (search)"
-    parameter_name = "course_search"
-    template = "admin/input_filter.html"  # This template should render a text input
-
-    def lookups(self, request, model_admin):
-        return []
-
-    def queryset(self, request, queryset):
-        value = self.value()
-        if value:
-            course_type_choices = dict(CourseType.objects.values_list("id", "name"))
-            whens = [When(course__course_type=k, then=Value(v)) for k, v in course_type_choices.items()]
-            queryset = queryset.annotate(course_type_display=Case(*whens, output_field=CharField()))
-            return queryset.filter(
-                Q(course__number__icontains=value)
-                | Q(course__name__icontains=value)
-                | Q(course_type_display__icontains=value)
-            )
-        return queryset
-
-    def expected_parameters(self):
-        return [self.parameter_name]
-
-
 @admin.register(Course)
-class CourseAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = [
-        "name",
+        "course_name",
         "course_type",
         "number",
         "start_date",
         "price",
         "_created_at",
     ]
-    list_filter = ["course_type", "number", "start_date", CourseTextInputFilter]
-    search_fields = ["course_type", "number"]
-    readonly_fields = ["_created_at", "_updated_at", "name"]
-    filter_horizontal = ["managing_users", "supporting_users", "instructors"]
+    list_filter = [
+        ("course_type", DALFRelatedFieldAjax),
+        ("number" , DropdownFilter),
+        ("supporting_users", DALFRelatedFieldAjax),
+    ]
+    search_fields = ["course_type__name_fa", "number", "course_name"]
+    readonly_fields = ["_created_at", "_updated_at"]
     inlines = [CourseSessionInline]
-    autocomplete_fields = ["managing_users", "supporting_users", "instructors"]
+    filter_horizontal = ["instructors", "supporting_users", "managing_users",]
+    list_select_related = True
+    ordering = ["-id"]
+    autocomplete_fields = ["instructors", "supporting_users", "managing_users"]
     fieldsets = (
         (
             "Course Information",
-            {"fields": ("course_type", "number", "name", "price", "start_date", "end_date")},
+            {"fields": (("course_name", "course_type", "number"), "price", ("start_date", "end_date"))},
         ),
         ("Administration", {"fields": ("managing_users", "supporting_users", "instructors")}),
         (
             "Timestamps",
-            {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
+            {"fields": ("_created_at", "_updated_at")},
         ),
     )
+    
+    # def formfield_for_manytomany(self, db_field, request, **kwargs):
+    #     if db_field.name in ["instructors", "supporting_users", "managing_users"]:
+    #         kwargs["queryset"] = User.objects.filter(is_staff=True)
+    #     return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.prefetch_related("managing_users", "supporting_users", "instructors")
 
-
 @admin.register(CourseSession)
-class CourseSessionAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = [
         "session_name",
         "course",
@@ -90,7 +75,7 @@ class CourseSessionAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     ]
     list_filter = [
         ("start_date", JDateFieldListFilter),
-        CourseTextInputFilter,
+        ("course", DALFRelatedFieldAjax),
     ]
     search_fields = ["session_name", "course__number", "course__course_type", "location", "description"]
     readonly_fields = ["_created_at", "_updated_at"]
@@ -113,12 +98,12 @@ class CourseSessionAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(Registration)
-class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = [
         "user",
         "course",
         "status",
-        "support_user",
+        "supporting_user",
         "payment_status",
         "tuition",
         "next_payment_date",
@@ -132,7 +117,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "status",
         "payment_status",
         ("registration_date", JDateFieldListFilter),
-        CourseTextInputFilter,
+        ("course", DALFRelatedFieldAjax),
     ]
     search_fields = [
         "user__phone_number",
@@ -146,11 +131,11 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "_created_at",
         "_updated_at",
     ]
-    autocomplete_fields = ["support_user"]
+    autocomplete_fields = ["supporting_user"]
     fieldsets = (
         (
             "Registration Information",
-            {"fields": ("user", "course", "status", "registration_date", "support_user")},
+            {"fields": ("user", "course", "status", "registration_date", "supporting_user")},
         ),
         (
             "Payment Information",
@@ -159,7 +144,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         ("Additional Information", {"fields": ("description",)}),
         (
             "Timestamps",
-            {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
+            {"fields": ("_created_at", "_updated_at")},
         ),
     )
 
@@ -168,14 +153,14 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         user = request.user
         if user.is_superuser:
             return fieldsets
-        if obj and user.managed_courses.filter(id=obj.course.id).exists():
+        if obj and obj.course.managing_users.filter(id=user.id).exists():
             return fieldsets
         filtered_fieldsets = []
         for name, options in fieldsets:
             if name == "Payment Information":
                 continue
             filtered_fieldsets.append((name, options))
-        return [tuple(filtered_fieldsets)]
+        return filtered_fieldsets
 
     def get_list_display(self, request):
         list_display = super().get_list_display(request)
@@ -192,42 +177,33 @@ class RegistrationAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         return [field for field in list_filter if field != "payment_status"]
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("user", "course", "support_user")
+        qs = super().get_queryset(request).select_related("user", "course", "supporting_user")
         user = request.user
         if user.is_superuser:
             return qs
-        managed_courses = user.managed_courses.all()
-        if managed_courses.exists():
-            return qs.filter(Q(course__in=managed_courses) | Q(support_user=user))
-        return qs.filter(user=user)
+        return qs.filter(Q(course__managing_users=user) | Q(course__supporting_users=user) | Q(supporting_user=user) | Q(user=user)).distinct()
+
+    def _has_registration_permission(self, request, obj=None):
+        user = request.user
+        if user.is_superuser or obj is None:
+            return True
+        if obj.course.managing_users.filter(id=user.id).exists() or obj.supporting_user == user or obj.user == user:
+            return True
+        return False
 
     def has_view_permission(self, request, obj=None):
-        user = request.user
-        if user.is_superuser:
-            return True
-        if obj is None:
-            return True
-        if obj.course in user.managed_courses.all() or obj.support_user == user or obj.user == user:
-            return True
-        return False
+        return self._has_registration_permission(request, obj)
 
     def has_change_permission(self, request, obj=None):
-        user = request.user
-        if user.is_superuser:
-            return True
-        if obj is None:
-            return True
-        if obj.course in user.managed_courses.all() or obj.support_user == user or obj.user == user:
-            return True
-        return False
-
+        return self._has_registration_permission(request, obj)
+    
     def has_delete_permission(self, request, obj=None):
         user = request.user
         if user.is_superuser:
             return True
         if obj is None:
             return True
-        return obj.course in user.managed_courses.all()
+        return False
 
 
 @admin.register(Attendance)

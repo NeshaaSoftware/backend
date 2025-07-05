@@ -1,10 +1,10 @@
-from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django_jalali.db import models as jmodels
 from phonenumber_field.modelfields import PhoneNumberField
-
+from django.utils import timezone
 from commons.models import TimeStampedModel
 
 GENDER_CHOICES = [
@@ -30,7 +30,7 @@ CRM_USER_STATUS_CHOICES = [
 CRM_LOG_ACTION_CHOICES = [(1, "تماس موفق"), (2, "تماس ناموفق"), (3, "پیامک ارسال شد"), (4, "تلگرام ارسال شد")]
 
 
-class User(AbstractUser, TimeStampedModel):
+class User(TimeStampedModel, AbstractUser):
     phone_number = PhoneNumberField(null=False, blank=False, unique=True)
     more_phone_numbers = models.TextField(blank=True, null=True)
     telegram_id = models.CharField(max_length=50, blank=True, null=True)
@@ -82,11 +82,11 @@ class User(AbstractUser, TimeStampedModel):
 
 class CrmUser(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="crm_user")
-    support_user = models.ForeignKey(
+    supporting_user = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name="supported_users"
     )
-    last_follow_up = models.DateTimeField(blank=True, null=True, db_index=True)
-    next_follow_up = models.DateTimeField(blank=True, null=True, db_index=True)
+    last_follow_up = jmodels.jDateTimeField(blank=True, null=True, db_index=True)
+    next_follow_up = jmodels.jDateTimeField(blank=True, null=True, db_index=True)
     joined_main_group = models.BooleanField(default=False, db_index=True)
     crm_description = models.TextField(blank=True, null=True)
     status = models.IntegerField(choices=CRM_USER_STATUS_CHOICES, default=3, db_index=True)
@@ -100,9 +100,10 @@ class CrmLog(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
     action = models.IntegerField(choices=CRM_LOG_ACTION_CHOICES, default=1, db_index=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="crm_logs")
+    date = jmodels.jDateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self):
-        return f"{self.crm.user.full_name} - {self._created_at}"
+        return f"{self.crm.user.full_name} - {self.get_action_display()} - {self.date}"
 
 
 class Orgnization(TimeStampedModel):

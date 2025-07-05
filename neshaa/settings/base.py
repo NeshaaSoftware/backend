@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_jalali",
     "django_extensions",
+    "dalf",
     # Local apps
     "commons",
     "users",

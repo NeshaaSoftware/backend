@@ -51,16 +51,15 @@ class CourseType(TimeStampedModel):
 
 class Course(TimeStampedModel):
     course_type = models.ForeignKey(CourseType, on_delete=models.CASCADE, related_name="courses", db_index=True)
-    course_name = models.CharField(max_length=100, blank=True, null=True)
+    course_name = models.CharField(max_length=100, blank=True, db_index=True)
     number = models.IntegerField(db_index=True)
     price = models.JSONField(blank=True, default=dict)
-    start_date = jmodels.jDateTimeField(blank=True, null=True)
+    start_date = jmodels.jDateTimeField(blank=True, null=True, db_index=True)
     end_date = jmodels.jDateTimeField(blank=True, null=True)
     instructors = models.ManyToManyField(
         User,
         blank=True,
         related_name="instructed_courses",
-        help_text="Users who are instructors for this course.",
     )
     managing_users = models.ManyToManyField(
         User,
@@ -81,12 +80,8 @@ class Course(TimeStampedModel):
     def instructors_names(self):
         return [user.full_name or user.username or user.phone_number for user in self.instructors.all()]
 
-    @property
-    def name(self):
-        return f"{self.course_name}"
-
     def __str__(self):
-        return self.name
+        return self.course_name
 
 
 class CourseSession(TimeStampedModel):
@@ -113,7 +108,7 @@ class Registration(TimeStampedModel):
     payment_status = models.IntegerField(choices=Payment_STATUS_CHOICES, default=3)
     payment_type = models.IntegerField(choices=PAYMENT_TYPE_CHOICES, default=1)
     next_payment_date = jmodels.jDateTimeField(blank=True, null=True)
-    support_user = models.ForeignKey(
+    supporting_user = models.ForeignKey(
         User, on_delete=models.SET_NULL, related_name="supported_registrations", blank=True, null=True
     )
     description = models.TextField(blank=True, null=True)

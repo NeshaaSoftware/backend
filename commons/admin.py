@@ -4,8 +4,36 @@ from django.contrib.contenttypes.models import ContentType
 
 from commons.models import DetailedLog
 
+from django.contrib.admin.filters import (
+    SimpleListFilter,
+    AllValuesFieldListFilter,
+    ChoicesFieldListFilter,
+    RelatedFieldListFilter,
+    RelatedOnlyFieldListFilter
+)
+
+
+class SimpleDropdownFilter(SimpleListFilter):
+    template = 'admin/dropdown_filter.html'
+
+
+class DropdownFilter(AllValuesFieldListFilter):
+   template = 'admin/dropdown_filter.html'
+
+
+class ChoiceDropdownFilter(ChoicesFieldListFilter):
+   template = 'admin/dropdown_filter.html'
+
+
+class RelatedDropdownFilter(RelatedFieldListFilter):
+   template = 'admin/dropdown_filter.html'
+
+
+class RelatedOnlyDropdownFilter(RelatedOnlyFieldListFilter):
+   template = 'admin/dropdown_filter.html'
 
 class DetailedLogAdminMixin:
+    save_on_top = True
     def log_django_admin_action(self, request, object, action_flag, change_message=None):
         LogEntry.objects.log_action(
             user_id=request.user.pk if request.user.is_authenticated else None,

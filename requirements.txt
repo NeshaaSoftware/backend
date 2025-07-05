@@ -1,4 +1,4 @@
-Django==5.2.1
+Django==5.2.4
 python-decouple==3.8
 gunicorn==23.0.0
 psycopg2-binary==2.9.10
@@ -12,3 +12,4 @@ notebook==7.4.4
 pandas==2.3.0
 tqdm==4.67.1
 mysqlclient==2.2.7
+dalf==0.3.0

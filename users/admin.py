@@ -1,17 +1,13 @@
+import re
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
+from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 
 from commons.admin import DetailedLogAdminMixin
 
 from .models import CrmLog, CrmUser, Orgnization, User
-
-
-class CrmLogInline(admin.TabularInline):
-    model = CrmLog
-    extra = 1
-    fields = ("description", "user", "action", "_created_at", "_updated_at")
-    readonly_fields = ("_created_at", "_updated_at", "user")
-    show_change_link = True
 
 
 @admin.register(User)
@@ -36,7 +32,6 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         "_created_at",
     ]
     search_fields = [
-        "email",
         "username",
         "first_name",
         "last_name",
@@ -45,8 +40,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
     ]
     readonly_fields = ["_created_at", "_updated_at", "date_joined", "last_login"]
     ordering = ["-_created_at"]
-
-    # Extend the default UserAdmin fieldsets
+    autocomplete_fields = ["referer"]
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         (
@@ -95,7 +89,6 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             "Important dates",
             {
                 "fields": ("last_login", "date_joined", "_created_at", "_updated_at"),
-                "classes": ("collapse",),
             },
         ),
     )
@@ -116,12 +109,31 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             },
         ),
     )
+    
+    def get_search_results(self, request, queryset, search_term):
+        if request.GET.get("field_name") in ["supporting_user", "supporting_users", "managing_users", "instructors"]:
+            queryset = queryset.filter(is_staff=True)
+        return super().get_search_results(request, queryset, search_term)
+
+
+class CrmLogInline(admin.TabularInline):
+    model = CrmLog
+    extra = 1
+    fields = ("description", "action", "date")
+    show_change_link = True
+    
+    # def get_readonly_fields(self, request, obj=None):
+    #     read_only = ["_created_at", "_updated_at", "user", "last_follow_up"]
+    #     print("objects is ", obj, obj.id)
+    #     if obj.id is None or obj.user == request.user:
+    #         return read_only
+    #     return read_only + ["description", "action"]
 
 
 @admin.register(CrmUser)
-class CrmUserAdmin(admin.ModelAdmin):
-    autocomplete_fields = ("support_user",)
-    list_display = ("user",)
+class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    autocomplete_fields = ("supporting_user",)
+    list_display = ("user", "supporting_user", "status", "last_follow_up", "next_follow_up", "joined_main_group")
     readonly_fields = ("_created_at", "_updated_at", "user", "registered_courses_list")
     search_fields = (
         "user__username",
@@ -132,7 +144,8 @@ class CrmUserAdmin(admin.ModelAdmin):
         "user__telegram_id",
     )
     inlines = [CrmLogInline]
-    list_filter = ("support_user", "last_follow_up", "next_follow_up")
+    select_related = ("user", "supporting_user")
+    list_filter = (("supporting_user", DALFRelatedFieldAjax), "last_follow_up", "next_follow_up")
     fieldsets = (
         (
             None,
@@ -140,7 +153,7 @@ class CrmUserAdmin(admin.ModelAdmin):
                 "fields": (
                     "user",
                     "registered_courses_list",
-                    "support_user",
+                    "supporting_user",
                     "status",
                     "last_follow_up",
                     "next_follow_up",
@@ -149,16 +162,15 @@ class CrmUserAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
 
     def save_formset(self, request, form, formset, change):
+        for form in formset.forms:
+            if hasattr(form, "instance") and isinstance(form.instance, CrmLog):
+                if not form.instance.pk:
+                    form.instance.user = request.user
         super().save_formset(request, form, formset, change)
-        if hasattr(formset, "new_objects") and hasattr(formset, "model") and formset.model is CrmLog:
-            for obj in formset.new_objects:
-                if hasattr(obj, "user") and not obj.user_id:
-                    obj.user = request.user
-                    obj.save()
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

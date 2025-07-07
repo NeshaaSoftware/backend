@@ -18,11 +18,11 @@ Including another URLconf
 from django.conf import settings
 from django.contrib import admin
 from django.http import HttpResponseNotFound
-from django.urls import path, re_path
+from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from django.views.static import serve
 
-from commons.views_readiness import readiness_probe
+from commons.views import readiness_probe
 
 
 def block_other_urls(request, *args, **kwargs):
@@ -30,6 +30,7 @@ def block_other_urls(request, *args, **kwargs):
 
 
 urlpatterns = [
+    path("courses/", include("courses.urls")),
     path("ndash/", admin.site.urls),
     path("readiness/", readiness_probe, name="readiness-probe"),
     re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATIC_ROOT}),

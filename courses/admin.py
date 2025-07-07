@@ -1,4 +1,5 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
+from dal import autocomplete
 from django import forms
 from django.contrib import admin, messages
 from django.db.models import Q
@@ -56,11 +57,6 @@ class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
     )
 
-    # def formfield_for_manytomany(self, db_field, request, **kwargs):
-    #     if db_field.name in ["instructors", "supporting_users", "managing_users"]:
-    #         kwargs["queryset"] = User.objects.filter(is_staff=True)
-    #     return super().formfield_for_manytomany(db_field, request, **kwargs)
-
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.prefetch_related("managing_users", "supporting_users", "instructors")
@@ -97,13 +93,19 @@ class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     )
 
     def get_queryset(self, request):
-        # Select related course for performance
         qs = super().get_queryset(request)
         return qs.select_related("course")
 
 
 class RegistrationExcelUploadForm(forms.Form):
     excel_file = forms.FileField(label="Registration Excel File", required=True)
+    course = forms.ModelChoiceField(
+        queryset=Course.objects.all(),
+        widget=autocomplete.ModelSelect2(url="course-autocomplete"),
+        label="Course",
+        required=True,
+        help_text="Select the course for which you are uploading registrations.",
+    )
 
 
 @admin.register(Registration)
@@ -175,23 +177,22 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return custom_urls + urls
 
     def upload_excel(self, request):
-        """
-        Handle Excel file upload for bulk registration import.
-        """
         if request.method == "POST":
             form = RegistrationExcelUploadForm(request.POST, request.FILES)
             if form.is_valid():
-                excel_file = form.cleaned_data["excel_file"]
+                # excel_file = form.cleaned_data["excel_file"]
+                # selected_course = form.cleaned_data["course"]
                 try:
-                    import pandas as pd
-                    df = pd.read_excel(excel_file)
-                    # TODO: Implement actual creation/updating of Registration objects
+
+                    # df = pd.read_excel(excel_file)
+                    # You can now use selected_course in your import logic
                     created, skipped = 0, 0
                     self.message_user(
                         request, f"Registrations imported: {created}, skipped: {skipped}", messages.SUCCESS
                     )
                 except Exception as e:
                     import logging
+
                     logger = logging.getLogger(__name__)
                     logger.exception("Error importing registrations from Excel")
                     self.message_user(request, f"Error importing registrations: {e}", messages.ERROR)

@@ -78,6 +78,13 @@ class User(TimeStampedModel, AbstractUser):
             if not hasattr(self, "crm_user"):
                 CrmUser.objects.create(user=self)
 
+    @property
+    def crm_user(self):
+        crm_user = getattr(self, "crm_user", None)
+        if crm_user is None:
+            crm_user = CrmUser.objects.create(user=self)
+        return crm_user
+
 
 class CrmUser(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="crm_user")

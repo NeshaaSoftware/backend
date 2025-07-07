@@ -206,3 +206,10 @@ class OrgnizationAdmin(admin.ModelAdmin):
     autocomplete_fields = ("contact_user",)
     list_display = ("name", "contact_user")
     search_fields = ("name", "contact_user__username", "contact_user__phone_number")
+
+
+@admin.register(CrmLog)
+class CrmLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "crm", "user", "action", "date", "description")
+    search_fields = ("crm__user__username", "crm__user__phone_number", "user__username", "user__phone_number")
+    autocomplete_fields = ("crm", "user")

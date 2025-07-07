@@ -5,7 +5,8 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from commons.admin import DetailedLogAdminMixin
 
 from .models import CrmLog, CrmUser, Orgnization, User
-
+from django.urls import reverse
+from django.utils.html import format_html
 
 @admin.register(User)
 class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
@@ -107,6 +108,19 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         ),
     )
 
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            user = self.model.objects.get(pk=object_id)
+            crm_user = user.crm_user
+            url = reverse("admin:users_crmuser_change", args=[crm_user.id])
+            extra_context['crm_user_button'] = format_html(
+                '<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url
+            )
+        except Exception:
+            extra_context['crm_user_button'] = None
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
     def get_search_results(self, request, queryset, search_term):
         if request.GET.get("field_name") in ["supporting_user", "supporting_users", "managing_users", "instructors"]:
             queryset = queryset.filter(is_staff=True)
@@ -169,7 +183,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
     @admin.display(description="Registered Courses")
     def registered_courses_list(self, obj):
-        registrations = obj.user.registrations.select_related("course__course_type").all()
+        registrations = obj.user.registrations.select_related("course__course_type").filter(status__in=[3,4,5,7,8,9])
         return (
             ", ".join(
                 [

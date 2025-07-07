@@ -7,6 +7,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
+from traitlets import default
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 
@@ -99,8 +100,11 @@ class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
 class RegistrationExcelUploadForm(forms.Form):
     excel_file = forms.FileField(label="Registration Excel File", required=True)
+    sheet_name = forms.CharField(required=False, initial="Registeration")
+    update_name = forms.BooleanField(initial=False)
     course = forms.ModelChoiceField(
         queryset=Course.objects.all(),
+        # TODO: fix widget problem
         # widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
@@ -165,7 +169,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             extra_context = {}
         upload_url = reverse("admin:registration-upload-excel")
         extra_context["upload_excel_button"] = format_html(
-            '<a class="button" href="{}" style="margin:10px 0;display:inline-block;">Upload Excel</a>', upload_url
+            '<a class="button" href="{}";display:inline-block;">Upload Excel</a>', upload_url
         )
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -180,15 +184,109 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         if request.method == "POST":
             form = RegistrationExcelUploadForm(request.POST, request.FILES)
             if form.is_valid():
-                # excel_file = form.cleaned_data["excel_file"]
-                # selected_course = form.cleaned_data["course"]
+                excel_file = form.cleaned_data["excel_file"]
+                selected_course = form.cleaned_data["course"]
+                sheet_name = form.cleaned_data.get("sheet_name")
+                update_name = form.cleaned_data.get("update_name")
                 try:
+                    from numpy import int64
+                    import pandas as pd
+                    from tqdm import tqdm
+                    from commons.utils import normalize_phone, convert_to_english_digit, get_status_from_text
+                    from users.models import User
+                    from courses.models import Registration
+                    
+                    df = pd.read_excel(excel_file, sheet_name=sheet_name, dtype={"fix phone": str, "سن": str})
+                    df = df.where(pd.notnull(df), None)
+                    good_phone = []
+                    bad_phone = []
+                    for phone in df["fix phone"]:
+                        if len(str(phone).strip()) == 11 and str(phone).startswith("09"):
+                            good_phone.append("+989" + phone[2:])
+                        else:
+                            bad_phone.append(phone)
+                    good_phone = list(set(good_phone))
+                    bad_phone = list(set(bad_phone))
 
-                    # df = pd.read_excel(excel_file)
-                    # You can now use selected_course in your import logic
-                    created, skipped = 0, 0
+                    users_dic = {user.phone_number: user for user in User.objects.filter(phone_number__in=good_phone)}
+
+                    def get_gender(gender):
+                        if gender in ["M", "m", "مرد", "آقا"]:
+                            return 1
+                        elif gender in ["F", "f", "زن", "خانم"]:
+                            return 2
+                        return None
+
+                    done_registrations = Registration.objects.values_list("user_id", "course_id")
+                    registration_dic = {f"{reg[0]}-{reg[1]}": True for reg in done_registrations}
+
+                    bad_name = 0
+                    made_users = 0
+                    made_registration = 0
+                    no_phone = 0
+                    logs = []
+
+                    for index, row in tqdm(df.iterrows(), total=df.shape[0]):
+                        phone = normalize_phone(row["fix phone"])
+                        first_name = str(row.get("نام", "")).strip()
+                        last_name = str(row.get("نام خانوادگی", "")).strip()
+                        if first_name in ["", "nan", "Nan", "NAN", None] and last_name in ["", "nan", "Nan", "NAN", None]:
+                            continue
+                        age = row.get("سن")
+                        if str(age) in ["nan", "Nan", "NAN"]:
+                            age = None
+                        if not phone:
+                            no_phone += 1
+                            logs.append(["No Phone", str(index), str(first_name), str(last_name), str(phone)])
+                            continue
+                        if phone in users_dic:
+                            user = users_dic[phone]
+                            if user.first_name != first_name or user.last_name != last_name:
+                                bad_name += 1
+                                logs.append(["bad name", str(phone), str(user.full_name), str(first_name), str(last_name)])
+                                if update_name:
+                                    user.first_name = first_name
+                                    user.last_name = last_name
+                                    user.save()
+                        else:
+                            user = User.objects.create(
+                                username=phone,
+                                phone_number=phone,
+                                first_name=first_name,
+                                last_name=last_name,
+                                telegram_id=row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None),
+                                email=row.get("ایمیل", ""),
+                                profession=row.get("حرفه", ""),
+                                age=age,
+                                gender=get_gender(row.get("جنسیت", None)),
+                                english_first_name=row.get("Name", ""),
+                                english_last_name=row.get("Surname", ""),
+                                referer_name=row.get("معرف", None),
+                            )
+                            made_users += 1
+                            users_dic[user.phone_number] = user
+                        status, payment_status = get_status_from_text(row.get("وضعیت", None))
+                        tuition = row.get("مبلغ نهایی", 0)
+                        if str(tuition) in ["nan", "Nan", "NAN"]:
+                            tuition = 0
+                        else:
+                            tuition = int(tuition) * 1000 * 1000
+                        if registration_dic.get(f"{user.id}-{selected_course.id}", None) is not None:
+                            continue
+                        try:
+                            user = Registration.objects.create(
+                                user=user,
+                                course=selected_course,
+                                status=status,
+                                payment_status=payment_status,
+                                tuition=tuition,
+                            )
+                            registration_dic[f"{user.id}-{selected_course.id}"] = True
+                            made_registration += 1
+                        except:
+                            logs.append(["Error", str(phone), user.full_name, row.get("نام")])
                     self.message_user(
-                        request, f"Registrations imported: {created}, skipped: {skipped}", messages.SUCCESS
+                        request, f"Registrations imported" + " ".join(["Done", str(bad_name), "bad name", str(no_phone), "no_phone", str(made_registration), "made registrations", str(made_users), "made users"]) + "\n".join([" ".join(l) for l in logs]), messages.SUCCESS
                     )
                 except Exception as e:
                     import logging

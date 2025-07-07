@@ -101,7 +101,7 @@ class RegistrationExcelUploadForm(forms.Form):
     excel_file = forms.FileField(label="Registration Excel File", required=True)
     course = forms.ModelChoiceField(
         queryset=Course.objects.all(),
-        widget=autocomplete.ModelSelect2(url="course-autocomplete"),
+        # widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
         help_text="Select the course for which you are uploading registrations.",

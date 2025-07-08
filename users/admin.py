@@ -262,7 +262,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if not request.user.is_superuser:
-            return self.readonly_fields + ("supporting_user",)
+            return (*self.readonly_fields, "supporting_user")
         return super().get_readonly_fields(request, obj)
 
     def save_formset(self, request, form, formset, change):

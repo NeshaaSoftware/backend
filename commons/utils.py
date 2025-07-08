@@ -1,5 +1,6 @@
 import re
 
+
 def convert_to_english_digit(text):
     to_english = {
         "۰": "0",
@@ -42,6 +43,7 @@ def normalize_phone(phone):
     elif len(phone) == 12 and phone.startswith("98"):
         return "+" + phone
     return None
+
 
 def get_status_from_text(status):
     if status in ["انتقال به دوره های بعد", "انصراف قبل از دوره", "غایب", "انصراف پیش از دوره"]:

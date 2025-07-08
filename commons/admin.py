@@ -50,8 +50,10 @@ class DetailedLogAdminMixin:
         if change:
             old_obj = obj.__class__.objects.get(pk=obj.pk)
             self.custom_old_values = {f.name: getattr(old_obj, f.name) for f in obj._meta.fields}
+            self.form_changed_values = {f: form.cleaned_data[f] for f in form.changed_data}
         else:
             self.custom_old_values = None
+            self.form_changed_values = []
         super().save_model(request, obj, form, change)
 
     def log_addition(self, request, object, message):
@@ -75,12 +77,13 @@ class DetailedLogAdminMixin:
 
         from commons.models import DetailedLog
 
-        self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
-        self.custom_changed_values = []
-        for k in self.custom_new_values:
-            if self.custom_old_values[k] != self.custom_new_values[k]:
-                self.custom_changed_values.append({k: self.custom_new_values[k]})
-
+        # self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
+        # self.custom_changed_values = []
+        # for k in self.custom_new_values:
+        #     if self.custom_old_values[k] != self.custom_new_values[k]:
+        #         self.custom_changed_values.append({k: self.custom_new_values[k]})
+        # self.custom_changed_values.append({"form": self.form_changed_values})
+        # self.custom_changed_values = [{k: v} for k, v in .items()]
         return DetailedLog.objects.create(
             user_id=request.user.pk,
             content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
@@ -89,7 +92,7 @@ class DetailedLogAdminMixin:
             action_flag=CHANGE,
             change_message=message or "",
             old_values=self.custom_old_values,
-            changed_values=self.custom_changed_values,
+            changed_values=self.form_changed_values,
         )
 
     def log_deletion(self, request, object, object_repr):

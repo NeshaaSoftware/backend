@@ -1,5 +1,5 @@
-from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from dal import autocomplete
+from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin, messages
 from django.db.models import Q
@@ -7,7 +7,6 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
-from traitlets import default
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 
@@ -104,8 +103,7 @@ class RegistrationExcelUploadForm(forms.Form):
     update_name = forms.BooleanField(initial=False)
     course = forms.ModelChoiceField(
         queryset=Course.objects.all(),
-        # TODO: fix widget problem
-        # widget=autocomplete.ModelSelect2(url="course-autocomplete"),
+        widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
         help_text="Select the course for which you are uploading registrations.",
@@ -189,13 +187,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 sheet_name = form.cleaned_data.get("sheet_name")
                 update_name = form.cleaned_data.get("update_name")
                 try:
-                    from numpy import int64
                     import pandas as pd
                     from tqdm import tqdm
-                    from commons.utils import normalize_phone, convert_to_english_digit, get_status_from_text
-                    from users.models import User
+
+                    from commons.utils import get_status_from_text, normalize_phone
                     from courses.models import Registration
-                    
+                    from users.models import User
+
                     df = pd.read_excel(excel_file, sheet_name=sheet_name, dtype={"fix phone": str, "سن": str})
                     df = df.where(pd.notnull(df), None)
                     good_phone = []
@@ -230,7 +228,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                         phone = normalize_phone(row["fix phone"])
                         first_name = str(row.get("نام", "")).strip()
                         last_name = str(row.get("نام خانوادگی", "")).strip()
-                        if first_name in ["", "nan", "Nan", "NAN", None] and last_name in ["", "nan", "Nan", "NAN", None]:
+                        if first_name in ["", "nan", "Nan", "NAN", None] and last_name in [
+                            "",
+                            "nan",
+                            "Nan",
+                            "NAN",
+                            None,
+                        ]:
                             continue
                         age = row.get("سن")
                         if str(age) in ["nan", "Nan", "NAN"]:
@@ -243,7 +247,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                             user = users_dic[phone]
                             if user.first_name != first_name or user.last_name != last_name:
                                 bad_name += 1
-                                logs.append(["bad name", str(phone), str(user.full_name), str(first_name), str(last_name)])
+                                logs.append(
+                                    ["bad name", str(phone), str(user.full_name), str(first_name), str(last_name)]
+                                )
                                 if update_name:
                                     user.first_name = first_name
                                     user.last_name = last_name
@@ -286,7 +292,23 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                         except:
                             logs.append(["Error", str(phone), user.full_name, row.get("نام")])
                     self.message_user(
-                        request, f"Registrations imported" + " ".join(["Done", str(bad_name), "bad name", str(no_phone), "no_phone", str(made_registration), "made registrations", str(made_users), "made users"]) + "\n".join([" ".join(l) for l in logs]), messages.SUCCESS
+                        request,
+                        "Registrations imported"
+                        + " ".join(
+                            [
+                                "Done",
+                                str(bad_name),
+                                "bad name",
+                                str(no_phone),
+                                "no_phone",
+                                str(made_registration),
+                                "made registrations",
+                                str(made_users),
+                                "made users",
+                            ]
+                        )
+                        + "\n".join([" ".join(l) for l in logs]),
+                        messages.SUCCESS,
                     )
                 except Exception as e:
                     import logging
@@ -301,7 +323,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             "form": form,
             **self.admin_site.each_context(request),
         }
-        return render(request, "admin/upload_registration_excel.html", context)
+        return render(request, "admin/courses/registration/upload_registration_excel.html", context)
 
     def get_fieldsets(self, request, obj=None):
         fieldsets = super().get_fieldsets(request, obj)

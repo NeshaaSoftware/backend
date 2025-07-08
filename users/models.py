@@ -49,6 +49,7 @@ class User(TimeStampedModel, AbstractUser):
     orgnization = models.ForeignKey(
         "Orgnization", on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users"
     )
+    main_user = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="other_users")
 
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["phone_number"]
@@ -79,7 +80,7 @@ class User(TimeStampedModel, AbstractUser):
                 CrmUser.objects.create(user=self)
 
     @property
-    def crm_user(self):
+    def _crm_user(self):
         crm_user = getattr(self, "crm_user", None)
         if crm_user is None:
             crm_user = CrmUser.objects.create(user=self)

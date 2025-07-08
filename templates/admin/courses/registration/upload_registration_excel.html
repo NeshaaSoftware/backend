@@ -3,22 +3,17 @@
 {% load static %}
 {% load i18n %}
 
+{% block extrahead %}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+{% endblock %}
+
 {% block content %}
+  {% csrf_token %}
+  {{ form.media }}
 <h2>Upload Registration Excel</h2>
 <form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
   {{ form.as_p }}
   <button type="submit" class="default">Upload</button>
 </form>
 <a href="{% url 'admin:courses_registration_changelist' %}">Back to registrations</a>
 {% endblock %}
-
-<script>
-
-$(document).ready(function() {
-  $("#select2insidemodal").select2({
-    dropdownParent: $("#myModal")
-  });
-});
-
-</script>

@@ -1,12 +1,14 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.urls import reverse
+from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
 
 from .models import CrmLog, CrmUser, Orgnization, User
-from django.urls import reverse
-from django.utils.html import format_html
+
 
 @admin.register(User)
 class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
@@ -108,17 +110,28 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         ),
     )
 
-    def change_view(self, request, object_id, form_url='', extra_context=None):
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if not request.user.is_superuser:
+            fieldsets = [fs for fs in fieldsets if fs[0] != "Permissions"]
+            fieldsets = [
+                (title, {**opts, "fields": tuple(f for f in opts["fields"] if f != "password")})
+                if opts.get("fields") else (title, opts)
+                for title, opts in fieldsets
+            ]
+        return fieldsets
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
         extra_context = extra_context or {}
         try:
             user = self.model.objects.get(pk=object_id)
             crm_user = user.crm_user
             url = reverse("admin:users_crmuser_change", args=[crm_user.id])
-            extra_context['crm_user_button'] = format_html(
+            extra_context["crm_user_button"] = format_html(
                 '<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url
             )
         except Exception:
-            extra_context['crm_user_button'] = None
+            extra_context["crm_user_button"] = None
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
     def get_search_results(self, request, queryset, search_term):
@@ -135,8 +148,47 @@ class CrmLogInline(DetailedLogAdminMixin, admin.TabularInline):
     show_change_link = True
 
 
+class CrmUserAdminForm(forms.ModelForm):
+    first_name = User._meta.get_field('first_name').formfield()
+    last_name = User._meta.get_field('last_name').formfield()
+    email = User._meta.get_field('email').formfield()
+    telegram_id = User._meta.get_field('telegram_id').formfield()
+    age = User._meta.get_field('age').formfield()
+    gender = User._meta.get_field('gender').formfield()
+    education = User._meta.get_field('education').formfield()
+    profession = User._meta.get_field('profession').formfield()
+    more_phone_numbers = User._meta.get_field('more_phone_numbers').formfield()
+    referer = User._meta.get_field('referer').formfield()
+    referer_name = User._meta.get_field('referer_name').formfield()
+    national_id = User._meta.get_field('national_id').formfield()
+    country = User._meta.get_field('country').formfield()
+    city = User._meta.get_field('city').formfield()
+    orgnization = User._meta.get_field('orgnization').formfield()
+    main_user = User._meta.get_field('main_user').formfield()
+
+    new_fields = ["first_name", "last_name", "email", "telegram_id", "age", "gender", "education", "profession", "more_phone_numbers", "referer", "referer_name", "national_id", "country", "city", "orgnization", "main_user"]
+
+    class Meta:
+        model = CrmUser
+        fields = "__all__"
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance:
+            for new_field in self.new_fields:
+                self.fields[new_field].initial = getattr(self.instance.user, new_field, None)
+            
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        for new_field in self.new_fields:
+            setattr(instance.user, new_field, self.cleaned_data.get(new_field))
+        instance.user.save()
+        return instance
+        
+
 @admin.register(CrmUser)
 class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    form = CrmUserAdminForm
     autocomplete_fields = ("supporting_user",)
     list_display = ("user", "supporting_user", "status", "last_follow_up", "next_follow_up", "joined_main_group")
     readonly_fields = ("_created_at", "_updated_at", "user", "registered_courses_list")
@@ -156,14 +208,19 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             None,
             {
                 "fields": (
-                    "user",
-                    "registered_courses_list",
-                    "supporting_user",
-                    "status",
-                    "last_follow_up",
-                    "next_follow_up",
-                    "joined_main_group",
-                    "crm_description",
+                    ("user", "registered_courses_list"),
+                    ("first_name", "last_name"),
+                    ("email", "telegram_id", "age", "gender", "education", "profession", "more_phone_numbers"),
+                )
+            }
+        ),
+        ("More info", {"fields": (("referer", "referer_name", "national_id", "country", "city", "orgnization", "main_user"),)}),
+        ("Support", {"fields": (
+            ("supporting_user", "status"),
+            "joined_main_group",
+            "last_follow_up",
+            "next_follow_up",
+            "crm_description",
                 )
             },
         ),
@@ -183,7 +240,9 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
     @admin.display(description="Registered Courses")
     def registered_courses_list(self, obj):
-        registrations = obj.user.registrations.select_related("course__course_type").filter(status__in=[3,4,5,7,8,9])
+        registrations = obj.user.registrations.select_related("course__course_type").filter(
+            status__in=[3, 4, 5, 7, 8, 9]
+        )
         return (
             ", ".join(
                 [
@@ -198,21 +257,11 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     def user_phone_number(self, obj):
         return obj.user.phone_number
 
-    @admin.display(description="Full Name")
-    def user_full_name(self, obj):
-        return (
-            obj.user.get_full_name()
-            if hasattr(obj.user, "get_full_name")
-            else f"{obj.user.first_name} {obj.user.last_name}"
-        )
-
-    @admin.display(description="Email")
-    def user_email(self, obj):
-        return obj.user.email
-
     @admin.display(description="Telegram ID")
     def user_telegram_id(self, obj):
         return obj.user.telegram_id
+    
+    
 
 
 @admin.register(Orgnization)

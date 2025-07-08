@@ -116,7 +116,8 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             fieldsets = [fs for fs in fieldsets if fs[0] != "Permissions"]
             fieldsets = [
                 (title, {**opts, "fields": tuple(f for f in opts["fields"] if f != "password")})
-                if opts.get("fields") else (title, opts)
+                if opts.get("fields")
+                else (title, opts)
                 for title, opts in fieldsets
             ]
         return fieldsets
@@ -125,8 +126,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         extra_context = extra_context or {}
         try:
             user = self.model.objects.get(pk=object_id)
-            crm_user = user.crm_user
-            url = reverse("admin:users_crmuser_change", args=[crm_user.id])
+            url = reverse("admin:users_crmuser_change", args=[user._crm_user.id])
             extra_context["crm_user_button"] = format_html(
                 '<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url
             )
@@ -139,6 +139,11 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             queryset = queryset.filter(is_staff=True)
         return super().get_search_results(request, queryset, search_term)
 
+    def get_model_perms(self, request):
+        if not request.user.is_superuser:
+            return {}
+        return super().get_model_perms(request)
+
 
 class CrmLogInline(DetailedLogAdminMixin, admin.TabularInline):
     model = CrmLog
@@ -149,42 +154,59 @@ class CrmLogInline(DetailedLogAdminMixin, admin.TabularInline):
 
 
 class CrmUserAdminForm(forms.ModelForm):
-    first_name = User._meta.get_field('first_name').formfield()
-    last_name = User._meta.get_field('last_name').formfield()
-    email = User._meta.get_field('email').formfield()
-    telegram_id = User._meta.get_field('telegram_id').formfield()
-    age = User._meta.get_field('age').formfield()
-    gender = User._meta.get_field('gender').formfield()
-    education = User._meta.get_field('education').formfield()
-    profession = User._meta.get_field('profession').formfield()
-    more_phone_numbers = User._meta.get_field('more_phone_numbers').formfield()
-    referer = User._meta.get_field('referer').formfield()
-    referer_name = User._meta.get_field('referer_name').formfield()
-    national_id = User._meta.get_field('national_id').formfield()
-    country = User._meta.get_field('country').formfield()
-    city = User._meta.get_field('city').formfield()
-    orgnization = User._meta.get_field('orgnization').formfield()
-    main_user = User._meta.get_field('main_user').formfield()
+    first_name = User._meta.get_field("first_name").formfield()
+    last_name = User._meta.get_field("last_name").formfield()
+    email = User._meta.get_field("email").formfield()
+    telegram_id = User._meta.get_field("telegram_id").formfield()
+    age = User._meta.get_field("age").formfield()
+    gender = User._meta.get_field("gender").formfield()
+    education = User._meta.get_field("education").formfield()
+    profession = User._meta.get_field("profession").formfield()
+    more_phone_numbers = User._meta.get_field("more_phone_numbers").formfield()
+    referer = User._meta.get_field("referer").formfield()
+    referer_name = User._meta.get_field("referer_name").formfield()
+    national_id = User._meta.get_field("national_id").formfield()
+    country = User._meta.get_field("country").formfield()
+    city = User._meta.get_field("city").formfield()
+    orgnization = User._meta.get_field("orgnization").formfield()
+    main_user = User._meta.get_field("main_user").formfield()
 
-    new_fields = ["first_name", "last_name", "email", "telegram_id", "age", "gender", "education", "profession", "more_phone_numbers", "referer", "referer_name", "national_id", "country", "city", "orgnization", "main_user"]
+    new_fields = [
+        "first_name",
+        "last_name",
+        "email",
+        "telegram_id",
+        "age",
+        "gender",
+        "education",
+        "profession",
+        "more_phone_numbers",
+        "referer",
+        "referer_name",
+        "national_id",
+        "country",
+        "city",
+        "orgnization",
+        "main_user",
+    ]
 
     class Meta:
         model = CrmUser
-        fields = "__all__"
-        
+        fields = "__all__"  # noqa
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance:
             for new_field in self.new_fields:
                 self.fields[new_field].initial = getattr(self.instance.user, new_field, None)
-            
+
     def save(self, commit=True):
         instance = super().save(commit=commit)
         for new_field in self.new_fields:
             setattr(instance.user, new_field, self.cleaned_data.get(new_field))
         instance.user.save()
         return instance
-        
+
 
 @admin.register(CrmUser)
 class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
@@ -202,7 +224,12 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     )
     inlines = [CrmLogInline]
     select_related = ("user", "supporting_user")
-    list_filter = (("supporting_user", DALFRelatedFieldAjax), "last_follow_up", "next_follow_up")
+    list_filter = (
+        ("supporting_user", DALFRelatedFieldAjax),
+        "last_follow_up",
+        "next_follow_up",
+    )
+
     fieldsets = (
         (
             None,
@@ -212,20 +239,31 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     ("first_name", "last_name"),
                     ("email", "telegram_id", "age", "gender", "education", "profession", "more_phone_numbers"),
                 )
-            }
+            },
         ),
-        ("More info", {"fields": (("referer", "referer_name", "national_id", "country", "city", "orgnization", "main_user"),)}),
-        ("Support", {"fields": (
-            ("supporting_user", "status"),
-            "joined_main_group",
-            "last_follow_up",
-            "next_follow_up",
-            "crm_description",
+        (
+            "More info",
+            {"fields": (("referer", "referer_name", "national_id", "country", "city", "orgnization", "main_user"),)},
+        ),
+        (
+            "Support",
+            {
+                "fields": (
+                    ("supporting_user", "status"),
+                    "joined_main_group",
+                    "last_follow_up",
+                    "next_follow_up",
+                    "crm_description",
                 )
             },
         ),
         ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
+
+    def get_readonly_fields(self, request, obj=None):
+        if not request.user.is_superuser:
+            return self.readonly_fields + ("supporting_user",)
+        return super().get_readonly_fields(request, obj)
 
     def save_formset(self, request, form, formset, change):
         for form in formset.forms:
@@ -260,8 +298,6 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     @admin.display(description="Telegram ID")
     def user_telegram_id(self, obj):
         return obj.user.telegram_id
-    
-    
 
 
 @admin.register(Orgnization)
@@ -276,3 +312,14 @@ class CrmLogAdmin(admin.ModelAdmin):
     list_display = ("id", "crm", "user", "action", "date", "description")
     search_fields = ("crm__user__username", "crm__user__phone_number", "user__username", "user__phone_number")
     autocomplete_fields = ("crm", "user")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser:
+            return qs.none()
+        return qs
+
+    def get_model_perms(self, request):
+        if not request.user.is_superuser:
+            return {}
+        return super().get_model_perms(request)

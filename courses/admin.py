@@ -178,6 +178,23 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ]
         return custom_urls + urls
 
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            registration = self.model.objects.get(pk=object_id)
+            url_user = reverse("admin:users_user_change", args=[registration.user.id])
+            url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
+            extra_context["user_button"] = format_html(
+                '<a class="button" href="{}";display:inline-block;">Go to User</a>', url_user
+            )
+            extra_context["crm_user_button"] = format_html(
+                '<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url_crm
+            )
+        except Exception:
+            extra_context["crm_user_button"] = None
+            extra_context["user_button"] = None
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
     def upload_excel(self, request):
         if request.method == "POST":
             form = RegistrationExcelUploadForm(request.POST, request.FILES)
@@ -289,8 +306,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                             )
                             registration_dic[f"{user.id}-{selected_course.id}"] = True
                             made_registration += 1
-                        except:
-                            logs.append(["Error", str(phone), user.full_name, row.get("نام")])
+                        except Exception as e:
+                            logs.append(["Error", str(phone), user.full_name, row.get("نام"), str(e)])
                     self.message_user(
                         request,
                         "Registrations imported"
@@ -307,7 +324,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                                 "made users",
                             ]
                         )
-                        + "\n".join([" ".join(l) for l in logs]),
+                        + "\n".join([" ".join(log) for log in logs]),
                         messages.SUCCESS,
                     )
                 except Exception as e:

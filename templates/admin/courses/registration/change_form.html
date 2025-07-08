@@ -1,0 +1,13 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools-items %}
+    {% if crm_user_button %}
+        <li>
+        {{ crm_user_button|safe }}
+        </li>
+        <li>
+        {{ user_button|safe }}
+        </li>
+    {% endif %}    
+    {{ block.super }}
+{% endblock %}

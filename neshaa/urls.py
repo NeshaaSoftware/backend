@@ -38,3 +38,7 @@ urlpatterns = [
     path("", block_other_urls),  # Block root
     path("<path:resource>", block_other_urls),  # Block all other URLs
 ]
+
+if settings.DEBUG and not settings.TESTING:
+    from debug_toolbar.toolbar import debug_toolbar_urls
+    urlpatterns = debug_toolbar_urls() + urlpatterns

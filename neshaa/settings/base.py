@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
+import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "tF7EpQUgVm4os%ArQyL13I+g*V8JV&dvd11#c50#ni3vDe&bsS")
 DEBUG = False
+TESTING = "test" in sys.argv or "PYTEST_VERSION" in os.environ
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [

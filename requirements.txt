@@ -15,3 +15,4 @@ mysqlclient==2.2.7
 dalf==0.3.0
 openpyxl==3.1.5
 django-autocomplete-light==3.12.1
+ django-debug-toolbar==5.2.0

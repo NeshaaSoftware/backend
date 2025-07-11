@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_jalali",
     "django_extensions",
+    'django.contrib.humanize',
     "dalf",
     # Local apps
     "commons",
@@ -77,6 +78,10 @@ LANGUAGE_CODE = "en-us"
 USE_I18N = True
 USE_TZ = True
 TIME_ZONE = "Asia/Tehran"
+USE_L10N = True
+USE_THOUSAND_SEPARATOR = True
+THOUSAND_SEPARATOR = ','
+NUMBER_GROUPING = 3
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

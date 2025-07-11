@@ -11,6 +11,7 @@ from django_jalali.admin.filters import JDateFieldListFilter
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 
 from .models import Attendance, Course, CourseSession, CourseType, Registration
+from financials.admin import CourseTransactionInline
 
 
 class CourseSessionInline(admin.TabularInline):
@@ -165,6 +166,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
     )
     change_list_template = "admin/courses/registration/change_list.html"
+    inlines = [CourseTransactionInline]
 
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:

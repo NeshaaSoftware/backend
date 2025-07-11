@@ -19,6 +19,10 @@ class Commodity(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, default="")
 
+    class Meta:
+        verbose_name = "Commodity"
+        verbose_name_plural = "Commodities"
+    
     def __str__(self):
         return self.name
 
@@ -53,9 +57,22 @@ class Invoice(TimeStampedModel):
     items_amount = models.PositiveBigIntegerField(default=0)
     discount = models.PositiveIntegerField(default=0)
     vat = models.PositiveIntegerField(default=0)
-    total_amount = models.PositiveBigIntegerField()
+    total_amount = models.PositiveBigIntegerField(default=0)
     is_paid = models.BooleanField(default=False)
     description = models.TextField(blank=True, default="")
+
+    def save(self, *args, **kwargs):
+        self.update_items_amount()
+        self.update_total_amount()
+        super().save(*args, **kwargs)
+
+    def update_items_amount(self):
+        total = self.items.aggregate(total=models.Sum('total_price'))['total'] or 0
+        self.items_amount = total
+
+    def update_total_amount(self):
+        # Example: total_amount = items_amount - discount + vat
+        self.total_amount = self.items_amount - self.discount + self.vat
 
     @property
     def balance(self):
@@ -73,7 +90,19 @@ class InvoiceItem(TimeStampedModel):
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     discount = models.PositiveIntegerField(default=0)
     vat = models.PositiveIntegerField(default=0)
-    total_price = models.PositiveBigIntegerField()
+    total_price = models.PositiveBigIntegerField(blank=True, default=0)
+    
+    def save(self, *args, **kwargs):
+        self.total_price = max((self.unit_price * self.quantity) - self.discount + self.vat, 0)
+        super().save(*args, **kwargs)
+        if self.invoice:
+            self.invoice.save()
+
+    def delete(self, *args, **kwargs):
+        invoice = self.invoice
+        super().delete(*args, **kwargs)
+        if invoice:
+            invoice.save()
 
 
 TRANSACTION_TYPE_CHOICES = [(1, "دریافت"), (2, "برداشت")]
@@ -140,22 +169,23 @@ class CourseTransaction(TimeStampedModel):
     title = models.CharField(max_length=200, blank=True, default="")
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
     transaction_category = models.IntegerField(choices=TRANSACTION_CATEGORY_CHOICES, default=1)
+    financial_account = models.ForeignKey(FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions")
     transaction = models.ForeignKey("Transaction", on_delete=models.CASCADE, related_name="course_transactions")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="transactions")
     registration = models.ForeignKey(
         "courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True
     )
-    tracking_code = models.CharField(max_length=100, blank=True, default="")
-    entry_user = models.ForeignKey(
-        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry"
-    )
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField(default=0)
     net_amount = models.PositiveIntegerField()
-    date = jmodels.jDateField()
     customer_name = models.CharField(max_length=100, blank=True, default="")
     user_account = models.ForeignKey(
         "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions"
+    )
+    date = jmodels.jDateField()
+    tracking_code = models.CharField(max_length=100, blank=True, default="")
+    entry_user = models.ForeignKey(
+        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry"
     )
     description = models.TextField(blank=True, default="")
 

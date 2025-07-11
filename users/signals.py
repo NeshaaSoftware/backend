@@ -43,7 +43,6 @@ def crm_log_pre_save(sender, instance, **kwargs):
 @receiver(post_save, sender=CrmLog)
 def crm_log_post_save(sender, instance, created, **kwargs):
     if created:
-        # Log all initial values as changed_values
         changed_values = {field: getattr(instance, field) for field in ["description", "action", "user", "date"]}
         DetailedLog.objects.create(
             user=instance.user,

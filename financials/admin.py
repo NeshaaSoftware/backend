@@ -1,142 +1,119 @@
-from django import forms
+from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django.contrib import admin
-from django_jalali.admin.filters import JDateFieldListFilter
-from django_jalali.admin.widgets import AdminjDateWidget
 
 from commons.admin import DetailedLogAdminMixin
 
-from .models import Cost, FinancialAccount, Income
-
-
-class CostAdminForm(forms.ModelForm):
-    class Meta:
-        model = Cost
-        fields = [
-            "course",
-            "date",
-            "invoice_number",
-            "title",
-            "description",
-            "person",
-            "amount",
-            "quantity",
-            "total_amount",
-            "is_paid",
-            "cost_type",
-        ]
-        widgets = {
-            "date": AdminjDateWidget,
-        }
-
-
-@admin.register(Cost)
-class CostAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
-    form = CostAdminForm
-    list_display = [
-        "title",
-        "cost_type",
-        "course",
-        "amount",
-        "quantity",
-        "total_amount",
-        "is_paid",
-    ]
-    list_filter = [
-        "cost_type",
-        "is_paid",
-        "course",
-        ("date", JDateFieldListFilter),
-    ]
-    search_fields = [
-        "title",
-        "description",
-        "person",
-        "invoice_number",
-    ]
-    readonly_fields = [
-        "total_amount",
-        "_created_at",
-        "_updated_at",
-    ]
-
-    fieldsets = (
-        (
-            "Cost Information",
-            {"fields": ("title", "cost_type", "description", "date", "course")},
-        ),
-        (
-            "Financial Details",
-            {"fields": ("amount", "quantity", "total_amount", "is_paid")},
-        ),
-        ("Additional Information", {"fields": ("person", "invoice_number")}),
-        (
-            "Timestamps",
-            {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
-        ),
-    )
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related("course")
-
-    def save_model(self, request, obj, form, change):
-        # Auto-calculate total_amount
-        obj.total_amount = obj.amount * obj.quantity
-        super().save_model(request, obj, form, change)
-
-
-class IncomeAdminForm(forms.ModelForm):
-    class Meta:
-        model = Income
-        fields = [
-            "course",
-            "date",
-            "description",
-            "name",
-            "user",
-            "amount",
-        ]
-        widgets = {
-            "date": AdminjDateWidget,
-        }
-
-
-@admin.register(Income)
-class IncomeAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
-    form = IncomeAdminForm
-    list_display = [
-        "name",
-        "course",
-        "user",
-        "amount",
-        "date",
-    ]
-    list_filter = ["course", "date"]
-    search_fields = ["name", "description", "user__username", "course__number"]
-    readonly_fields = ["_created_at", "_updated_at"]
-
-    fieldsets = (
-        (
-            "Income Information",
-            {"fields": ("name", "course", "user", "description", "date")},
-        ),
-        (
-            "Financial Details",
-            {"fields": ("amount",)},
-        ),
-        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
-    )
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related("course", "user")
-
-    def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
+from .models import Commodity, Customer, FinancialAccount, Invoice, InvoiceItem, Transaction
 
 
 @admin.register(FinancialAccount)
-class FinancialAccountAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "_created_at", "_updated_at")
-    search_fields = ("name", "course__number")
-    list_filter = ("course",)
+class FinancialAccountAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = ("name", "description", "_created_at", "_updated_at")
+    search_fields = ("name", "description")
     readonly_fields = ("_created_at", "_updated_at")
     filter_horizontal = ("course",)
+
+
+@admin.register(Commodity)
+class CommodityAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = ("name", "description", "_created_at", "_updated_at")
+    search_fields = ("name", "description")
+    readonly_fields = ("_created_at", "_updated_at")
+
+
+@admin.register(Customer)
+class CustomerAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = ("name", "tax_id", "national_id", "contact", "address", "customer_type")
+    search_fields = ("name", "tax_id", "national_id", "contact", "address")
+    readonly_fields = ("_created_at", "_updated_at")
+
+
+class InvoiceItemInline(admin.TabularInline):
+    model = InvoiceItem
+    extra = 0
+    autocomplete_fields = ("commodity",)
+    readonly_fields = ("_created_at", "_updated_at")
+    show_change_link = True
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = ("id", "type", "date", "customer", "total_amount", "is_paid", "course", "items_amount", "discount", "vat", "orgnization", "_created_at", "_updated_at")
+    search_fields = ("customer__name", "description")
+    list_filter = ("type", "is_paid", ("course", DALFRelatedFieldAjax), ("customer", DALFRelatedFieldAjax), "date")
+    readonly_fields = ("_created_at", "_updated_at")
+    autocomplete_fields = (
+        "course",
+        "customer",
+    )
+    inlines = [InvoiceItemInline]
+
+
+@admin.register(InvoiceItem)
+class InvoiceItemAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = (
+        "invoice",
+        "commodity",
+        "description",
+        "unit_price",
+        "quantity",
+        "discount",
+        "vat",
+        "total_price",
+        "_created_at",
+        "_updated_at",
+    )
+    search_fields = ("description", "commodity__name", "invoice__id")
+    readonly_fields = ("_created_at", "_updated_at")
+    autocomplete_fields = (
+        "invoice",
+        "commodity",
+    )
+    list_filter = (("invoice", DALFRelatedFieldAjax), ("commodity", DALFRelatedFieldAjax))
+
+
+@admin.register(Transaction)
+class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = (
+        "id",
+        "invoice",
+        "transaction_type",
+        "date",
+        "amount",
+        "fee",
+        "net_amount",
+        "name",
+        "user_account",
+        "tracking_code",
+        "account",
+        "course",
+        "entry_user",
+        "description",
+        "_created_at",
+        "_updated_at",
+    )
+    search_fields = (
+        "invoice__id",
+        "tracking_code",
+        "account__name",
+        "course__name",
+        "user_account__username",
+        "entry_user__username",
+    )
+    list_filter = (
+        "transaction_type",
+        ("account", DALFRelatedFieldAjax),
+        ("course", DALFRelatedFieldAjax),
+        ("invoice", DALFRelatedFieldAjax),
+        ("user_account", DALFRelatedFieldAjax),
+        ("entry_user", DALFRelatedFieldAjax),
+        "date",
+    )
+    readonly_fields = ("_created_at", "_updated_at")
+    autocomplete_fields = (
+        "invoice",
+        "account",
+        "course",
+        "user_account",
+        "entry_user",
+    )

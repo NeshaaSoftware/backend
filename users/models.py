@@ -30,21 +30,21 @@ CRM_LOG_ACTION_CHOICES = [(1, "تماس موفق"), (2, "تماس ناموفق")
 
 
 class User(TimeStampedModel, AbstractUser):
-    phone_number = PhoneNumberField(null=False, blank=False, unique=True)
-    more_phone_numbers = models.TextField(blank=True, null=True)
-    telegram_id = models.CharField(max_length=50, blank=True, null=True)
+    phone_number = PhoneNumberField(null=True, blank=True, unique=True)
+    more_phone_numbers = models.TextField(blank=True, default="")
+    telegram_id = models.CharField(max_length=50, blank=True, default="")
     gender = models.IntegerField(choices=GENDER_CHOICES, blank=True, null=True, db_index=True)
     age = models.PositiveIntegerField(blank=True, null=True, validators=[MinValueValidator(0), MaxValueValidator(120)])
     birth_date = models.DateField(blank=True, null=True)
     education = models.IntegerField(choices=EDUCATION_CHOICES, blank=True, null=True)
-    profession = models.CharField(max_length=100, blank=True, null=True)
+    profession = models.CharField(max_length=100, blank=True, default="")
     english_first_name = models.CharField(max_length=50, blank=True, db_index=True)
     english_last_name = models.CharField(max_length=50, blank=True, db_index=True)
     referer = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="referrals")
     referer_name = models.CharField(max_length=100, blank=True)
-    national_id = models.CharField(max_length=10, blank=True, null=True)
-    country = models.CharField(max_length=50, blank=True, null=True)
-    city = models.CharField(max_length=50, blank=True, null=True)
+    national_id = models.CharField(max_length=10, blank=True, default="")
+    country = models.CharField(max_length=50, blank=True, default="")
+    city = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, null=True)
     orgnization = models.ForeignKey(
         "Orgnization", on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users"
@@ -52,7 +52,7 @@ class User(TimeStampedModel, AbstractUser):
     main_user = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="other_users")
 
     USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["phone_number"]
+    REQUIRED_FIELDS = []
 
     @property
     def full_name(self):
@@ -65,6 +65,13 @@ class User(TimeStampedModel, AbstractUser):
         indexes = [
             models.Index(fields=["first_name"]),
             models.Index(fields=["last_name"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["first_name", "last_name", "phone_number"],
+                name="unique_first_last_name_phone",
+                nulls_distinct=False,
+            ),
         ]
 
     def __str__(self):

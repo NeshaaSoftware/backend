@@ -5,13 +5,14 @@
 
 {% block extrahead %}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{ form.media }}
 {% endblock %}
 
 {% block content %}
-  {% csrf_token %}
-  {{ form.media }}
 <h2>Upload Registration Excel</h2>
 <form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.media }}
   {{ form.as_p }}
   <button type="submit" class="default">Upload</button>
 </form>

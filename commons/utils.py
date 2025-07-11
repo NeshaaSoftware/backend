@@ -45,6 +45,14 @@ def normalize_phone(phone):
     return None
 
 
+def get_national_id(national_id):
+    if not national_id:
+        return None
+    if len(str(national_id).strip()) == 8:
+        return "00" + convert_to_english_digit(str(national_id)).strip()
+    return convert_to_english_digit(str(national_id)).strip()
+
+
 def get_status_from_text(status):
     if status in ["انتقال به دوره های بعد", "انصراف قبل از دوره", "غایب", "انصراف پیش از دوره"]:
         return 2, 3
@@ -67,3 +75,55 @@ def get_status_from_text(status):
     elif status in ["حاضر در دوره - تسویه"]:
         return 9, 3
     return 9, 3
+
+
+def move_user(user1, user2):
+    from courses.models import Registration
+
+    for reg in Registration.objects.filter(user_id=user1.id):
+        if not Registration.objects.filter(user_id=user2.id, course=reg.course).exists():
+            reg.user_id = user2.id
+            reg.save()
+    user2.telegram_id = user1.telegram_id if user2.telegram_id in [None, ""] else user2.telegram_id
+    user2.profession = user1.profession if user2.profession in [None, ""] else user2.profession
+    user2.more_phone_numbers = (user1.more_phone_numbers + user2.more_phone_numbers).strip()
+    user2.email = user1.email if user2.email in [None, ""] else user2.email
+    user2.national_id = user1.national_id if user2.national_id in [None, ""] else user2.national_id
+    user2.english_first_name = (
+        user1.english_first_name if user2.english_first_name in [None, ""] else user2.english_first_name
+    )
+    user2.english_last_name = (
+        user1.english_last_name if user2.english_last_name in [None, ""] else user2.english_last_name
+    )
+    user2.referer_name = user1.referer_name if user2.referer_name in [None, ""] else user2.referer_name
+    user2.gender = user1.gender if user2.gender is None else user2.gender
+    user2.age = user1.age if user2.age in [None, 0] else user2.age
+    user1.description = f"{user1.first_name} {user1.last_name} has been merged into {user2.id}" + "\n" + user1.username
+    user1.first_name = "testuser"
+    user1.last_name = f"{user1.id}"
+    user1.username = f"testuser{user1.id}"
+    user1.active = False
+    user1.main_user = user2
+    user1.save()
+    user2.save()
+
+
+def merge_duplicate_users():
+    from users.models import User
+
+    users = User.objects.values_list("first_name", "last_name", "id", "phone_number")
+    user_dic = {}
+    for u in users:
+        if u[1] != "":
+            k = f"{u[0]}{u[1]}".replace(" ", "")
+            if k not in user_dic:
+                user_dic[k] = [[str(u[3]) if u[3] else None, u[2]]]
+            else:
+                user_dic[k].append([str(u[3]) if u[3] else None, u[2]])
+
+    for k in user_dic:
+        if len(user_dic[k]) > 1:
+            if user_dic[k][0][0] is None:
+                move_user(User.objects.get(id=user_dic[k][0][1]), User.objects.get(id=user_dic[k][1][1]))
+            elif user_dic[k][1][0] is None:
+                move_user(User.objects.get(id=user_dic[k][1][1]), User.objects.get(id=user_dic[k][0][1]))

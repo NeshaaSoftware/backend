@@ -100,7 +100,11 @@ class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 class RegistrationExcelUploadForm(forms.Form):
     excel_file = forms.FileField(label="Registration Excel File", required=True)
     sheet_name = forms.CharField(required=False, initial="Registeration")
-    update_name = forms.BooleanField(initial=False)
+    update_name = forms.BooleanField(initial=False, required=False)
+    currency_to_toman_multiplier = forms.FloatField(
+        initial=1000000,
+        help_text="Multiplier to convert currency to Toman. Default is 1000 for Rials to Tomans.",
+    )
     course = forms.ModelChoiceField(
         queryset=Course.objects.all(),
         widget=autocomplete.ModelSelect2(url="course-autocomplete"),
@@ -203,11 +207,14 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 selected_course = form.cleaned_data["course"]
                 sheet_name = form.cleaned_data.get("sheet_name")
                 update_name = form.cleaned_data.get("update_name")
+                currency_to_toman_multiplier = form.cleaned_data.get("currency_to_toman_multiplier", 1000000)
                 try:
+                    import hashlib
+
                     import pandas as pd
                     from tqdm import tqdm
 
-                    from commons.utils import get_status_from_text, normalize_phone
+                    from commons.utils import get_national_id, get_status_from_text, normalize_phone
                     from courses.models import Registration
                     from users.models import User
 
@@ -223,13 +230,32 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     good_phone = list(set(good_phone))
                     bad_phone = list(set(bad_phone))
 
-                    users_dic = {user.phone_number: user for user in User.objects.filter(phone_number__in=good_phone)}
+                    users_dic = {
+                        user[1]: user
+                        for user in User.objects.all().values_list(
+                            "id", "username", "first_name", "last_name", "phone_number"
+                        )
+                    }
+                    users_dup_check = {
+                        f"{u[2]}{u[3]}".replace(" ", ""): u for u in users_dic.values() if u[3] not in [None, ""]
+                    }
 
                     def get_gender(gender):
                         if gender in ["M", "m", "مرد", "آقا"]:
                             return 1
                         elif gender in ["F", "f", "زن", "خانم"]:
                             return 2
+                        return None
+
+                    def get_education(education):
+                        if education in ["کمتر از کارشناسی"]:
+                            return 1
+                        elif education in ["کارشناسی"]:
+                            return 2
+                        elif education in ["کارشناسی ارشد"]:
+                            return 3
+                        elif education in ["دکتری و بالاتر"]:
+                            return 4
                         return None
 
                     done_registrations = Registration.objects.values_list("user_id", "course_id")
@@ -243,71 +269,116 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
                     for index, row in tqdm(df.iterrows(), total=df.shape[0]):
                         phone = normalize_phone(row["fix phone"])
-                        first_name = str(row.get("نام", "")).strip()
-                        last_name = str(row.get("نام خانوادگی", "")).strip()
-                        if first_name in ["", "nan", "Nan", "NAN", None] and last_name in [
-                            "",
-                            "nan",
-                            "Nan",
-                            "NAN",
-                            None,
-                        ]:
+                        first_name = row.get("نام", "")
+                        if first_name:
+                            first_name = first_name.strip()
+                        last_name = row.get("نام خانوادگی", "")
+                        if last_name:
+                            last_name = last_name.strip()
+                        telegram_id = row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None)
+                        email = row.get("ایمیل", "") or ""
+                        education = get_education(row.get("تحصیلات", ""))
+                        profession = row.get("حرفه", "")
+                        age = row.get("سن", None)
+                        gender = get_gender(row.get("جنسیت", None))
+                        national_id = get_national_id(row.get("کد ملی", ""))
+                        english_first_name = row.get("Name", "") or ""
+                        english_last_name = row.get("Surname", "") or ""
+                        referer_name = row.get("معرف", None) or ""
+
+                        if phone == "":
+                            phone = None
+                        if phone is None and first_name is None and last_name is None:
                             continue
-                        age = row.get("سن")
-                        if str(age) in ["nan", "Nan", "NAN"]:
-                            age = None
-                        if not phone:
+                        last_name = last_name or ""
+
+                        if phone is None:
+                            name_hash = hashlib.sha256(f"{first_name}{last_name}".encode()).hexdigest()[:10]
+                            username = f"from_upload_{name_hash}"
                             no_phone += 1
                             logs.append(["No Phone", str(index), str(first_name), str(last_name), str(phone)])
-                            continue
-                        if phone in users_dic:
-                            user = users_dic[phone]
-                            if user.first_name != first_name or user.last_name != last_name:
+                        else:
+                            username = phone
+                        if username in users_dic:
+                            user = users_dic[username]
+                            if user[2] != first_name or user[3] != last_name:
                                 bad_name += 1
                                 logs.append(
-                                    ["bad name", str(phone), str(user.full_name), str(first_name), str(last_name)]
+                                    [
+                                        "bad name",
+                                        str(phone),
+                                        str(user[2]),
+                                        str(user[3]),
+                                        str(first_name),
+                                        str(last_name),
+                                    ]
                                 )
                                 if update_name:
-                                    user.first_name = first_name
-                                    user.last_name = last_name
-                                    user.save()
+                                    User.objects.filter(username=username).update(
+                                        first_name=first_name, last_name=last_name
+                                    )
+
+                        elif users_dup_check.get(f"{first_name}{last_name}".replace(" ", ""), None) is not None:
+                            user = users_dup_check[f"{first_name}{last_name}".replace(" ", "")]
+                            u = User.objects.get(id=user[0])
+                            if user[4] is None:
+                                u.phone_number = phone
+                                u.username = username
+                                users_dic[username] = [u.id, username, first_name, last_name, phone]
+                                user = users_dic[username]
+                            u.telegram_id = u.telegram_id if u.telegram_id not in [None, ""] else telegram_id
+                            u.email = u.email if u.email not in [None, ""] else email
+                            u.profession = u.profession if u.profession not in [None, ""] else profession
+                            u.education = u.education if u.education not in [None, ""] else education
+                            u.age = u.age if u.age not in [None, 0] else age
+                            u.gender = u.gender if u.gender not in [None, ""] else gender
+                            u.national_id = u.national_id if u.national_id not in [None, ""] else national_id
+                            u.english_first_name = (
+                                u.english_first_name if u.english_first_name not in [None, ""] else english_first_name
+                            )
+                            u.english_last_name = (
+                                u.english_last_name if u.english_last_name not in [None, ""] else english_last_name
+                            )
+                            u.referer_name = u.referer_name if u.referer_name not in [None, ""] else referer_name
+                            u.save()
                         else:
                             user = User.objects.create(
-                                username=phone,
+                                username=username,
                                 phone_number=phone,
                                 first_name=first_name,
                                 last_name=last_name,
-                                telegram_id=row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None),
-                                email=row.get("ایمیل", ""),
-                                profession=row.get("حرفه", ""),
+                                telegram_id=telegram_id,
+                                email=email,
+                                profession=profession,
+                                education=education,
                                 age=age,
-                                gender=get_gender(row.get("جنسیت", None)),
-                                english_first_name=row.get("Name", ""),
-                                english_last_name=row.get("Surname", ""),
-                                referer_name=row.get("معرف", None),
+                                gender=gender,
+                                national_id=national_id,
+                                english_first_name=english_first_name,
+                                english_last_name=english_last_name,
+                                referer_name=referer_name,
                             )
                             made_users += 1
-                            users_dic[user.phone_number] = user
+                            user = [user.id, user.username, user.first_name, user.last_name, user.phone_number]
+                            users_dup_check[f"{first_name}{last_name}".replace(" ", "")] = user
+                            users_dic[username] = user
                         status, payment_status = get_status_from_text(row.get("وضعیت", None))
-                        tuition = row.get("مبلغ نهایی", 0)
-                        if str(tuition) in ["nan", "Nan", "NAN"]:
-                            tuition = 0
-                        else:
-                            tuition = int(tuition) * 1000 * 1000
-                        if registration_dic.get(f"{user.id}-{selected_course.id}", None) is not None:
+                        tuition = row.get("مبلغ نهایی", 0) or 0
+                        tuition = float(tuition) * currency_to_toman_multiplier
+                        if registration_dic.get(f"{user[0]}-{selected_course.id}", None) is not None:
                             continue
                         try:
-                            user = Registration.objects.create(
-                                user=user,
+                            Registration.objects.create(
+                                user_id=user[0],
                                 course=selected_course,
                                 status=status,
                                 payment_status=payment_status,
                                 tuition=tuition,
                             )
-                            registration_dic[f"{user.id}-{selected_course.id}"] = True
+                            registration_dic[f"{user[0]}-{selected_course.id}"] = True
                             made_registration += 1
                         except Exception as e:
-                            logs.append(["Error", str(phone), user.full_name, row.get("نام"), str(e)])
+                            logs.append(["Error", str(phone), str(user[2]), str(user[3]), row.get("نام"), str(e)])
                     self.message_user(
                         request,
                         "Registrations imported"

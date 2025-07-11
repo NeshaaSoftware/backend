@@ -89,7 +89,7 @@ class CourseSession(TimeStampedModel):
     session_name = models.CharField(max_length=100)
     start_date = jmodels.jDateTimeField()
     end_date = jmodels.jDateTimeField()
-    location = models.CharField(max_length=200, blank=True, null=True)
+    location = models.CharField(max_length=200, blank=True, default="")
     description = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -104,7 +104,17 @@ class Registration(TimeStampedModel):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="registrations")
     status = models.IntegerField(choices=STATUS_CHOICES, default=1)
     registration_date = jmodels.jDateTimeField(auto_now_add=True)
+    initial_price = models.PositiveIntegerField(default=0, help_text="تومان")
+    discount = models.PositiveIntegerField(default=0, help_text="تومان")
+    vat = models.PositiveIntegerField(default=0, help_text="تومان")
     tuition = models.IntegerField(default=0, help_text="تومان")
+    invoice_item = models.ForeignKey(
+        "financials.InvoiceItem",
+        on_delete=models.SET_NULL,
+        related_name="registrations",
+        null=True,
+        blank=True,
+    )
     payment_status = models.IntegerField(choices=Payment_STATUS_CHOICES, default=3)
     payment_type = models.IntegerField(choices=PAYMENT_TYPE_CHOICES, default=1)
     next_payment_date = jmodels.jDateTimeField(blank=True, null=True)

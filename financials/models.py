@@ -1,9 +1,9 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 from django_jalali.db import models as jmodels
 
 from commons.models import TimeStampedModel
 from courses.models import Course
-from django.core.validators import MinValueValidator
 
 
 class FinancialAccount(TimeStampedModel):
@@ -22,7 +22,7 @@ class Commodity(TimeStampedModel):
     class Meta:
         verbose_name = "Commodity"
         verbose_name_plural = "Commodities"
-    
+
     def __str__(self):
         return self.name
 
@@ -67,11 +67,10 @@ class Invoice(TimeStampedModel):
         super().save(*args, **kwargs)
 
     def update_items_amount(self):
-        total = self.items.aggregate(total=models.Sum('total_price'))['total'] or 0
+        total = self.items.aggregate(total=models.Sum("total_price"))["total"] or 0
         self.items_amount = total
 
     def update_total_amount(self):
-        # Example: total_amount = items_amount - discount + vat
         self.total_amount = self.items_amount - self.discount + self.vat
 
     @property
@@ -91,7 +90,7 @@ class InvoiceItem(TimeStampedModel):
     discount = models.PositiveIntegerField(default=0)
     vat = models.PositiveIntegerField(default=0)
     total_price = models.PositiveBigIntegerField(blank=True, default=0)
-    
+
     def save(self, *args, **kwargs):
         self.total_price = max((self.unit_price * self.quantity) - self.discount + self.vat, 0)
         super().save(*args, **kwargs)
@@ -106,6 +105,16 @@ class InvoiceItem(TimeStampedModel):
 
 
 TRANSACTION_TYPE_CHOICES = [(1, "دریافت"), (2, "برداشت")]
+TRANSACTION_CATEGORY_CHOICES = [
+    (1, "ثبت‌نام دوره"),
+    (2, "هزینه دوره"),
+    (3, "قسط دوره"),
+    (4, "شارژ اعتبار"),
+    (5, "هزینه عملیاتی"),
+    (6, "جبران خدمات"),
+    (7, "تجهیزات"),
+    (8, "سرمایه‌گذاری"),
+]
 
 
 class Transaction(TimeStampedModel):
@@ -113,6 +122,7 @@ class Transaction(TimeStampedModel):
     account = models.ForeignKey(FinancialAccount, on_delete=models.CASCADE, related_name="transactions")
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL)
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
+    transaction_category = models.IntegerField(choices=TRANSACTION_CATEGORY_CHOICES, default=1)
     date = jmodels.jDateField()
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
@@ -147,7 +157,7 @@ COST_CATEGORY_CHARGING_CREDIT = "شارژ اعتبار"
 INCOME_CATEGORY_REGISTRATION = "ثبت‌نام"
 INCOME_CATEGORY_INSTULLMENT = "قسط"
 
-TRANSACTION_CATEGORY_CHOICES = [
+COURSE_TRANSACTION_CATEGORY_CHOICES = [
     (1, COST_CATEGORY_HOTEL),
     (2, COST_CATEGORY_EXECUTIVE_CATERING),
     (3, COST_CATEGORY_EXECUTIVE_TRANSPORTATION),
@@ -168,9 +178,11 @@ VARIABLE_COST_CATEGORY = [7, 8, 9]
 class CourseTransaction(TimeStampedModel):
     title = models.CharField(max_length=200, blank=True, default="")
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
-    transaction_category = models.IntegerField(choices=TRANSACTION_CATEGORY_CHOICES, default=1)
-    financial_account = models.ForeignKey(FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions")
-    transaction = models.ForeignKey("Transaction", on_delete=models.CASCADE, related_name="course_transactions")
+    transaction_category = models.IntegerField(choices=COURSE_TRANSACTION_CATEGORY_CHOICES, default=1)
+    financial_account = models.ForeignKey(
+        FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions"
+    )
+    transaction = models.ForeignKey("Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="transactions")
     registration = models.ForeignKey(
         "courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True

@@ -1,11 +1,10 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin
-from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
 
-from .models import Commodity, Customer, FinancialAccount, Invoice, InvoiceItem, Transaction, CourseTransaction
+from .models import Commodity, CourseTransaction, Customer, FinancialAccount, Invoice, InvoiceItem, Transaction
 
 
 @admin.register(FinancialAccount)
@@ -14,6 +13,10 @@ class FinancialAccountAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     search_fields = ("name", "description")
     readonly_fields = ("_created_at", "_updated_at")
     filter_horizontal = ("course",)
+    fieldsets = (
+        ("اطلاعات حساب", {"fields": ("name", "description", "course")}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
 
 @admin.register(Commodity)
@@ -21,6 +24,10 @@ class CommodityAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = ("name", "description", "_created_at", "_updated_at")
     search_fields = ("name", "description")
     readonly_fields = ("_created_at", "_updated_at")
+    fieldsets = (
+        ("اطلاعات کالا", {"fields": ("name", "description")}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
 
 @admin.register(Customer)
@@ -28,6 +35,10 @@ class CustomerAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = ("name", "tax_id", "national_id", "contact", "address", "customer_type")
     search_fields = ("name", "tax_id", "national_id", "contact", "address")
     readonly_fields = ("_created_at", "_updated_at")
+    fieldsets = (
+        ("اطلاعات مشتری", {"fields": ("name", "customer_type", "tax_id", "national_id", "contact", "address")}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
 
 class InvoiceItemInline(admin.TabularInline):
@@ -45,12 +56,12 @@ class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "type",
         "date",
         "customer",
-        "formatted_total_amount",
+        "total_amount",
         "is_paid",
         "course",
-        "formatted_items_amount",
-        "formatted_discount",
-        "formatted_vat",
+        "items_amount",
+        "discount",
+        "vat",
         "orgnization",
         "_created_at",
         "_updated_at",
@@ -63,35 +74,46 @@ class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "customer",
     )
     inlines = [InvoiceItemInline]
+    fieldsets = (
+        ("اطلاعات فاکتور", {"fields": ("type", "date", "customer", "course", "orgnization", "description")}),
+        ("مبالغ", {"fields": ("items_amount", "discount", "vat", "total_amount", "is_paid")}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
-    @admin.display(description="Total Amount", ordering="total_amount")
-    def formatted_total_amount(self, obj):
-        return f"{obj.total_amount:,}"
 
-    @admin.display(description="Items Amount", ordering="items_amount")
-    def formatted_items_amount(self, obj):
-        return f"{obj.items_amount:,}"
+class BigNumberInput(forms.NumberInput):
+    def __init__(self, *args, **kwargs):
+        attrs = kwargs.get("attrs", {})
+        attrs["style"] = attrs.get("style", "") + "font-size: 1.2em; min-width: 140px;"
+        super().__init__(*args, **kwargs)
 
-    @admin.display(description="Discount", ordering="discount")
-    def formatted_discount(self, obj):
-        return f"{obj.discount:,}"
 
-    @admin.display(description="VAT", ordering="vat")
-    def formatted_vat(self, obj):
-        return f"{obj.vat:,}"
+class FinancialNumberFormMixin(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for _, field in self.fields.items():
+            if isinstance(field.widget, forms.NumberInput):
+                field.widget = BigNumberInput(attrs=field.widget.attrs)
+
+
+class InvoiceItemAdminForm(FinancialNumberFormMixin, forms.ModelForm):
+    class Meta:
+        model = InvoiceItem
+        fields = "__all__"  # noqa
 
 
 @admin.register(InvoiceItem)
 class InvoiceItemAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    form = InvoiceItemAdminForm
     list_display = (
         "invoice",
         "commodity",
         "description",
-        "formatted_unit_price",
-        "formatted_quantity",
-        "formatted_discount",
-        "formatted_vat",
-        "formatted_total_price",
+        "unit_price",
+        "quantity",
+        "discount",
+        "vat",
+        "total_price",
         "_created_at",
         "_updated_at",
     )
@@ -102,38 +124,30 @@ class InvoiceItemAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "commodity",
     )
     list_filter = (("invoice", DALFRelatedFieldAjax), ("commodity", DALFRelatedFieldAjax))
+    fieldsets = (
+        ("اطلاعات آیتم فاکتور", {"fields": ("invoice", "commodity", "description")}),
+        ("مبالغ", {"fields": ("unit_price", "quantity", "discount", "vat", "total_price")}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
-    @admin.display(description="Unit Price", ordering="unit_price")
-    def formatted_unit_price(self, obj):
-        return f"{obj.unit_price:,}"
 
-    @admin.display(description="Quantity", ordering="quantity")
-    def formatted_quantity(self, obj):
-        return f"{obj.quantity:,}"
-
-    @admin.display(description="Discount", ordering="discount")
-    def formatted_discount(self, obj):
-        return f"{obj.discount:,}"
-
-    @admin.display(description="VAT", ordering="vat")
-    def formatted_vat(self, obj):
-        return f"{obj.vat:,}"
-
-    @admin.display(description="Total Price", ordering="total_price")
-    def formatted_total_price(self, obj):
-        return f"{obj.total_price:,}"
+class TransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
+    class Meta:
+        model = Transaction
+        fields = "__all__"  # noqa
 
 
 @admin.register(Transaction)
 class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    form = TransactionAdminForm
     list_display = (
         "id",
         "invoice",
         "transaction_type",
         "date",
-        "formatted_amount",
-        "formatted_fee",
-        "formatted_net_amount",
+        "amount",
+        "fee",
+        "net_amount",
         "name",
         "user_account",
         "tracking_code",
@@ -161,7 +175,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("entry_user", DALFRelatedFieldAjax),
         "date",
     )
-    readonly_fields = ("_created_at", "_updated_at")
+    readonly_fields = ("net_amount", "_created_at", "_updated_at")
     autocomplete_fields = (
         "invoice",
         "account",
@@ -169,28 +183,38 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "user_account",
         "entry_user",
     )
-
-    @admin.display(description="Amount", ordering="amount")
-    def formatted_amount(self, obj):
-        return f"{obj.amount:,}"
-
-    @admin.display(description="Fee", ordering="fee")
-    def formatted_fee(self, obj):
-        return f"{obj.fee:,}"
-
-    @admin.display(description="Net Amount", ordering="net_amount")
-    def formatted_net_amount(self, obj):
-        return f"{obj.net_amount:,}"
+    fieldsets = (
+        (
+            "اطلاعات تراکنش",
+            {
+                "fields": (
+                    "invoice",
+                    "transaction_type",
+                    "transaction_category",
+                    "date",
+                    "account",
+                    "course",
+                    "user_account",
+                    "entry_user",
+                    "tracking_code",
+                    "name",
+                    "description",
+                )
+            },
+        ),
+        ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
 
 class CourseTransactionInlineForm(forms.ModelForm):
     class Meta:
         model = CourseTransaction
-        fields = '__all__'
+        fields = "__all__"  # noqa
         help_texts = {
-            'amount': 'مبلغ به تومان',
-            'fee': 'کارمزد به تومان',
-            'net_amount': 'خالص مبلغ به تومان',
+            "amount": "مبلغ به تومان",
+            "fee": "کارمزد به تومان",
+            "net_amount": "خالص مبلغ به تومان",
         }
 
     def __init__(self, *args, parent_registration=None, **kwargs):
@@ -201,7 +225,7 @@ class CourseTransactionInlineForm(forms.ModelForm):
         instance = super().save(commit=False)
         if self.parent_registration is not None:
             instance.registration = self.parent_registration
-            if hasattr(self.parent_registration, 'course'):
+            if hasattr(self.parent_registration, "course"):
                 instance.course = self.parent_registration.course
         if commit:
             instance.save()
@@ -212,8 +236,8 @@ class CourseTransactionInline(admin.TabularInline):
     model = CourseTransaction
     form = CourseTransactionInlineForm
     extra = 0
-    readonly_fields = ("net_amount",)
-    autocomplete_fields = ("entry_user", "user_account")
+    readonly_fields = ("net_amount", "entry_user")
+    exclude = ("course", "user_account",)
     show_change_link = True
     verbose_name = "تراکنش مالی ثبت‌نام"
     verbose_name_plural = "تراکنش‌های مالی ثبت‌نام"
@@ -221,8 +245,81 @@ class CourseTransactionInline(admin.TabularInline):
     def get_formset(self, request, obj=None, **kwargs):
         FormSet = super().get_formset(request, obj, **kwargs)
         parent_registration = obj
+
         class WrappedFormSet(FormSet):
-            def _construct_form(inner_self, i, **form_kwargs):
-                form_kwargs['parent_registration'] = parent_registration
-                return super(WrappedFormSet, inner_self)._construct_form(i, **form_kwargs)
+            def _construct_form(self, i, **form_kwargs):
+                form_kwargs["parent_registration"] = parent_registration
+                return super()._construct_form(i, **form_kwargs)
+
         return WrappedFormSet
+
+
+@admin.register(CourseTransaction)
+class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    list_display = (
+        "id",
+        "transaction",
+        "transaction_type",
+        "transaction_category",
+        "course",
+        "registration",
+        "amount",
+        "fee",
+        "net_amount",
+        "date",
+        "entry_user",
+        "user_account",
+        "customer_name",
+        "tracking_code",
+        "description",
+        "_created_at",
+        "_updated_at",
+    )
+    search_fields = (
+        "transaction__id",
+        "course__name",
+        "registration__id",
+        "entry_user__username",
+        "user_account__username",
+        "customer_name",
+        "tracking_code",
+        "description",
+    )
+    list_filter = (
+        "transaction_type",
+        "transaction_category",
+        ("course", DALFRelatedFieldAjax),
+        ("registration", DALFRelatedFieldAjax),
+        ("entry_user", DALFRelatedFieldAjax),
+        ("user_account", DALFRelatedFieldAjax),
+        "date",
+    )
+    readonly_fields = ("net_amount", "_created_at", "_updated_at")
+    autocomplete_fields = (
+        "transaction",
+        "course",
+        "registration",
+        "entry_user",
+        "user_account",
+    )
+    fieldsets = (
+        (
+            "اطلاعات تراکنش دوره",
+            {
+                "fields": (
+                    "transaction",
+                    "transaction_type",
+                    "transaction_category",
+                    "course",
+                    "registration",
+                    "entry_user",
+                    "user_account",
+                    "customer_name",
+                    "tracking_code",
+                    "description",
+                )
+            },
+        ),
+        ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
+        ("زمان‌بندی", {"fields": ("date", "_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )

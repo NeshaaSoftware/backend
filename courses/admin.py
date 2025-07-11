@@ -9,9 +9,9 @@ from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
+from financials.admin import CourseTransactionInline
 
 from .models import Attendance, Course, CourseSession, CourseType, Registration
-from financials.admin import CourseTransactionInline
 
 
 class CourseSessionInline(admin.TabularInline):

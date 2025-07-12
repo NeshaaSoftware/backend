@@ -215,6 +215,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     return redirect(request.path)
                 if not request.POST.get("confirm_preview"):
                     preview_data = df.loc[:, ["fix phone", "نام", "نام خانوادگی", "مبلغ نهایی"]]
+                    df = df.dropna(subset=['نام', 'نام خانوادگی', "fix phone"])
                     preview_html = preview_data.to_html(index=False, classes="table table-bordered table-sm")
                     return render(
                         request,

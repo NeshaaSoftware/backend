@@ -93,6 +93,11 @@ class User(TimeStampedModel, AbstractUser):
             crm_user = CrmUser.objects.create(user=self)
         return crm_user
 
+class CrmUserLabel(TimeStampedModel):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
 
 class CrmUser(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="crm_user")
@@ -103,6 +108,7 @@ class CrmUser(TimeStampedModel):
     next_follow_up = jmodels.jDateTimeField(blank=True, null=True, db_index=True)
     joined_main_group = models.BooleanField(default=False, db_index=True)
     crm_description = models.TextField(blank=True, null=True)
+    crm_label = models.ManyToManyField(CrmUserLabel, blank=True, related_name="crm_users")
     status = models.IntegerField(choices=CRM_USER_STATUS_CHOICES, default=3, db_index=True)
 
     def __str__(self):

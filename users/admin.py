@@ -7,7 +7,7 @@ from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
 
-from .models import CrmLog, CrmUser, Orgnization, User
+from .models import CrmLog, CrmUser, CrmUserLabel, Orgnization, User
 
 
 @admin.register(User)
@@ -208,10 +208,16 @@ class CrmUserAdminForm(forms.ModelForm):
         return instance
 
 
+@admin.register(CrmUserLabel)
+class CrmUserLabelAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")
+    search_fields = ("name",)
+    ordering = ["id"]
+
 @admin.register(CrmUser)
 class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     form = CrmUserAdminForm
-    autocomplete_fields = ("supporting_user",)
+    autocomplete_fields = ("supporting_user", "crm_label")
     list_display = ("user", "supporting_user", "status", "last_follow_up", "next_follow_up", "joined_main_group")
     readonly_fields = ("_created_at", "_updated_at", "user", "registered_courses_list")
     search_fields = (
@@ -228,6 +234,8 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("supporting_user", DALFRelatedFieldAjax),
         "last_follow_up",
         "next_follow_up",
+        "status",
+        ("crm_label", DALFRelatedFieldAjax),
     )
 
     fieldsets = (
@@ -251,6 +259,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 "fields": (
                     ("supporting_user", "status"),
                     "joined_main_group",
+                    "crm_label",
                     "last_follow_up",
                     "next_follow_up",
                     "crm_description",

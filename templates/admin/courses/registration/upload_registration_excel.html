@@ -14,7 +14,17 @@
   {% csrf_token %}
   {{ form.media }}
   {{ form.as_p }}
-  <button type="submit" class="default">Upload</button>
+  {% if preview_html %}
+    <h3>Preview (first 2 rows):</h3>
+    <div style="overflow-x:auto;">{{ preview_html|safe }}</div>
+    <input type="hidden" name="confirm_preview" value="1" />
+    {% if show_confirm %}
+      <button type="submit" class="default">Continue and Process</button>
+      <a href="." class="button">Cancel</a>
+    {% endif %}
+  {% else %}
+    <button type="submit" class="default">Preview</button>
+  {% endif %}
 </form>
 <a href="{% url 'admin:courses_registration_changelist' %}">Back to registrations</a>
 {% endblock %}

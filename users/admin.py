@@ -163,13 +163,13 @@ class CrmUserAdminForm(forms.ModelForm):
     education = User._meta.get_field("education").formfield()
     profession = User._meta.get_field("profession").formfield()
     more_phone_numbers = User._meta.get_field("more_phone_numbers").formfield()
-    referer = User._meta.get_field("referer").formfield()
+    referer = User._meta.get_field("referer").formfield(widget=admin.widgets.AutocompleteSelect(User._meta.get_field("referer"), admin.site))
     referer_name = User._meta.get_field("referer_name").formfield()
     national_id = User._meta.get_field("national_id").formfield()
     country = User._meta.get_field("country").formfield()
     city = User._meta.get_field("city").formfield()
-    orgnization = User._meta.get_field("orgnization").formfield()
-    main_user = User._meta.get_field("main_user").formfield()
+    orgnization = User._meta.get_field("orgnization").formfield(widget=admin.widgets.AutocompleteSelect(User._meta.get_field("orgnization"), admin.site))
+    main_user = User._meta.get_field("main_user").formfield(widget=admin.widgets.AutocompleteSelect(User._meta.get_field("main_user"), admin.site))
 
     new_fields = [
         "first_name",
@@ -181,15 +181,15 @@ class CrmUserAdminForm(forms.ModelForm):
         "education",
         "profession",
         "more_phone_numbers",
-        "referer",
         "referer_name",
+        "referer",
         "national_id",
         "country",
         "city",
         "orgnization",
         "main_user",
     ]
-
+    new_readonly_fields = []
     class Meta:
         model = CrmUser
         fields = "__all__"  # noqa
@@ -199,6 +199,10 @@ class CrmUserAdminForm(forms.ModelForm):
         if self.instance:
             for new_field in self.new_fields:
                 self.fields[new_field].initial = getattr(self.instance.user, new_field, None)
+            for read_only_field in self.new_readonly_fields:
+                self.fields[read_only_field].initial = getattr(self.instance.user, read_only_field, None)
+                self.fields[read_only_field].widget.attrs['readonly'] = True
+                
 
     def save(self, commit=True):
         instance = super().save(commit=commit)
@@ -237,7 +241,6 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "status",
         ("crm_label", DALFRelatedFieldAjax),
     )
-
     fieldsets = (
         (
             None,

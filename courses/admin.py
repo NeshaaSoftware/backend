@@ -238,6 +238,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
                     df = pd.read_excel(excel_file, sheet_name=sheet_name, dtype={"fix phone": str, "سن": str})
                     df = df.where(pd.notnull(df), None)
+                    df = df.dropna(subset=['نام', 'نام خانوادگی', "fix phone"])
                     good_phone = []
                     bad_phone = []
                     for phone in df["fix phone"]:

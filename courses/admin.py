@@ -214,7 +214,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     self.message_user(request, f"Error reading Excel file: {e}", level="error")
                     return redirect(request.path)
                 if not request.POST.get("confirm_preview"):
-                    preview_data = df.loc[:1, ["fix phone", "نام", "نام خانوادگی"]]
+                    preview_data = df.loc[:, ["fix phone", "نام", "نام خانوادگی"]]
                     preview_html = preview_data.to_html(index=False, classes="table table-bordered table-sm")
                     return render(
                         request,

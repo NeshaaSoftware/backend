@@ -296,7 +296,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                         telegram_id = row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None) or ""
                         email = row.get("ایمیل", "") or ""
                         education = get_education(row.get("تحصیلات", ""))
-                        profession = row.get("حرفه", "")
+                        profession = row.get("حرفه", "") or ""
                         age = row.get("سن", None)
                         gender = get_gender(row.get("جنسیت", None))
                         national_id = get_national_id(row.get("کد ملی", "")) or ""

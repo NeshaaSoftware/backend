@@ -293,13 +293,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                         last_name = row.get("نام خانوادگی", "")
                         if last_name:
                             last_name = last_name.strip()
-                        telegram_id = row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None)
+                        telegram_id = row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None) or ""
                         email = row.get("ایمیل", "") or ""
                         education = get_education(row.get("تحصیلات", ""))
                         profession = row.get("حرفه", "")
                         age = row.get("سن", None)
                         gender = get_gender(row.get("جنسیت", None))
-                        national_id = get_national_id(row.get("کد ملی", ""))
+                        national_id = get_national_id(row.get("کد ملی", "")) or ""
                         english_first_name = row.get("Name", "") or ""
                         english_last_name = row.get("Surname", "") or ""
                         referer_name = row.get("معرف", None) or ""

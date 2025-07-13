@@ -299,7 +299,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return (
             ", ".join(
                 [
-                    f"{reg.course.course_type.name_fa or reg.course.course_type.name} {reg.course.number}"
+                    f"{reg.course.course_type.name_fa or reg.course.course_type.name} {reg.course.number} - {reg.status_display}"
                     for reg in registrations
                 ]
             )

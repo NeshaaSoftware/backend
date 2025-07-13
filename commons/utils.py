@@ -42,7 +42,9 @@ def normalize_phone(phone):
         return "+" + phone[2:]
     elif len(phone) == 12 and phone.startswith("98"):
         return "+" + phone
-    return None
+    elif len(phone) > 15 or len(phone) < 10:
+        return None
+    return phone
 
 
 def get_national_id(national_id):

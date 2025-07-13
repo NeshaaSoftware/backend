@@ -39,7 +39,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         "telegram_id",
     ]
     readonly_fields = ["_created_at", "_updated_at", "date_joined", "last_login"]
-    ordering = ["-_created_at"]
+    ordering = ["-id"]
     autocomplete_fields = ["referer"]
     fieldsets = (
         (None, {"fields": ("username", "password")}),
@@ -233,6 +233,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "user__telegram_id",
     )
     inlines = [CrmLogInline]
+    ordering = ["id"]
     select_related = ("user", "supporting_user")
     list_filter = (
         ("supporting_user", DALFRelatedFieldAjax),
@@ -285,8 +286,10 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         super().save_formset(request, form, formset, change)
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.select_related("user")
+        qs = super().get_queryset(request).select_related("user")
+        if not request.user.is_superuser:
+            return qs.filter(supporting_user=request.user)
+        return qs
 
     @admin.display(description="Registered Courses")
     def registered_courses_list(self, obj):

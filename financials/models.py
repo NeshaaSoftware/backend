@@ -1,6 +1,7 @@
 from django.core.validators import MinValueValidator
 from django.db import models
 from django_jalali.db import models as jmodels
+import jdatetime
 
 from commons.models import TimeStampedModel
 from courses.models import Course
@@ -125,7 +126,7 @@ class Transaction(TimeStampedModel):
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL)
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
     transaction_category = models.IntegerField(choices=TRANSACTION_CATEGORY_CHOICES, default=1)
-    date = jmodels.jDateField()
+    transaction_date = jmodels.jDateTimeField(default=jdatetime.datetime.now, db_index=True, help_text="تاریخ تراکنش")
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField()
     net_amount = models.PositiveIntegerField()
@@ -146,31 +147,34 @@ class Transaction(TimeStampedModel):
             self.net_amount = self.amount + self.fee
         return super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.id}-{self.amount}-{self.account.name}-{self.get_transaction_type_display()}-{self.get_transaction_category_display()}"
 
-COST_CATEGORY_HOTEL = "اقامت هتل"
-COST_CATEGORY_EXECUTIVE_CATERING = "پذیرایی تیم اجرایی"
-COST_CATEGORY_EXECUTIVE_TRANSPORTATION = "جابجایی تیم اجرایی"
-COST_CATEGORY_EQUIPMENT = "تجهیزات"
-COST_CATEGORY_SERVICE_PERSONNEL = "نیروی خدماتی"
-COST_CATEGORY_EXECUTIVE_COMPENSATION = "جبران خدمات تیم اجرا"
-COST_CATEGORY_STATIONERY = "لوازم تحریر"
-COST_CATEGORY_CATERING = "پذیرایی"
-COST_CATEGORY_CHARGING_CREDIT = "شارژ اعتبار"
-INCOME_CATEGORY_REGISTRATION = "ثبت‌نام"
-INCOME_CATEGORY_INSTULLMENT = "قسط"
+
+COST_CATEGORY_HOTEL = 1
+COST_CATEGORY_EXECUTIVE_CATERING = 2
+COST_CATEGORY_EXECUTIVE_TRANSPORTATION = 3
+COST_CATEGORY_EQUIPMENT = 4
+COST_CATEGORY_SERVICE_PERSONNEL = 5
+COST_CATEGORY_EXECUTIVE_COMPENSATION = 6
+COST_CATEGORY_STATIONERY = 7
+COST_CATEGORY_CATERING = 8
+COST_CATEGORY_CHARGING_CREDIT = 9
+INCOME_CATEGORY_REGISTRATION = 10
+INCOME_CATEGORY_INSTULLMENT = 11
 
 COURSE_TRANSACTION_CATEGORY_CHOICES = [
-    (1, COST_CATEGORY_HOTEL),
-    (2, COST_CATEGORY_EXECUTIVE_CATERING),
-    (3, COST_CATEGORY_EXECUTIVE_TRANSPORTATION),
-    (4, COST_CATEGORY_EQUIPMENT),
-    (5, COST_CATEGORY_SERVICE_PERSONNEL),
-    (6, COST_CATEGORY_EXECUTIVE_COMPENSATION),
-    (7, COST_CATEGORY_STATIONERY),
-    (8, COST_CATEGORY_CATERING),
-    (9, COST_CATEGORY_CHARGING_CREDIT),
-    (10, INCOME_CATEGORY_REGISTRATION),
-    (11, INCOME_CATEGORY_INSTULLMENT),
+    (COST_CATEGORY_HOTEL, "اقامت هتل"),
+    (COST_CATEGORY_EXECUTIVE_CATERING, "پذیرایی تیم اجرایی"),
+    (COST_CATEGORY_EXECUTIVE_TRANSPORTATION, "جابجایی تیم اجرایی"),
+    (COST_CATEGORY_EQUIPMENT, "تجهیزات"),
+    (COST_CATEGORY_SERVICE_PERSONNEL, "نیروی خدماتی"),
+    (COST_CATEGORY_EXECUTIVE_COMPENSATION, "جبران خدمات تیم اجرا"),
+    (COST_CATEGORY_STATIONERY, "لوازم تحریر"),
+    (COST_CATEGORY_CATERING, "پذیرایی"),
+    (COST_CATEGORY_CHARGING_CREDIT, "شارژ اعتبار"),
+    (INCOME_CATEGORY_REGISTRATION, "ثبت‌نام"),
+    (INCOME_CATEGORY_INSTULLMENT, "قسط"),
 ]
 
 FIXED_COST_CATEGORY = [1, 2, 3, 4, 5, 6]
@@ -180,7 +184,7 @@ VARIABLE_COST_CATEGORY = [7, 8, 9]
 class CourseTransaction(TimeStampedModel):
     title = models.CharField(max_length=200, blank=True, default="")
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
-    transaction_category = models.IntegerField(choices=COURSE_TRANSACTION_CATEGORY_CHOICES, default=1)
+    transaction_category = models.IntegerField(choices=COURSE_TRANSACTION_CATEGORY_CHOICES, default=10)
     financial_account = models.ForeignKey(
         FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions"
     )
@@ -191,14 +195,14 @@ class CourseTransaction(TimeStampedModel):
     registration = models.ForeignKey(
         "courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True
     )
-    amount = models.PositiveIntegerField()
-    fee = models.PositiveIntegerField(default=0)
-    net_amount = models.PositiveIntegerField()
+    amount = models.PositiveIntegerField(help_text="تومان")
+    fee = models.PositiveIntegerField(default=0, help_text="تومان")
+    net_amount = models.PositiveIntegerField(help_text="تومان")
     customer_name = models.CharField(max_length=100, blank=True, default="")
     user_account = models.ForeignKey(
         "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions"
     )
-    date = jmodels.jDateField()
+    transaction_date = jmodels.jDateTimeField(default=jdatetime.datetime.now, db_index=True, help_text="تاریخ تراکنش")
     tracking_code = models.CharField(max_length=100, blank=True, default="")
     entry_user = models.ForeignKey(
         "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry"
@@ -211,3 +215,40 @@ class CourseTransaction(TimeStampedModel):
         else:
             self.net_amount = self.amount + self.fee
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.id}-{self.amount}-{self.title}-{self.get_transaction_type_display()}-{self.get_transaction_category_display()}-{self.course.course_name}"
+
+    def create_transaction(self, entry_user=None) -> Transaction:
+        if self.transaction is not None:
+            return None
+        transaction_category_mapping = {
+            1: 2,
+            2: 2,
+            3: 2,
+            4: 2,
+            5: 2,
+            6: 2,
+            7: 5,
+            8: 5,
+            9: 4,
+            10: 1,
+            11: 3,
+        }
+
+        transaction_category = transaction_category_mapping.get(self.transaction_category, 1)
+        transaction = Transaction.objects.create(
+            account=self.financial_account,
+            course=self.course,
+            transaction_type=self.transaction_type,
+            transaction_category=transaction_category,
+            date=self.date,
+            amount=self.amount,
+            fee=self.fee,
+            user_account=self.user_account,
+            tracking_code=self.tracking_code,
+            entry_user=entry_user or self.entry_user,
+            description=f"CT #{self.id}",
+        )
+
+        return transaction

@@ -4,6 +4,7 @@ from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin, messages
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -11,8 +12,18 @@ from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 from financials.admin import CourseTransactionInline
+from financials.models import FinancialAccount
 
-from .models import Attendance, Course, CourseSession, CourseType, Registration
+from .models import (
+    PAYMENT_STATUS_CHOICES,
+    PAYMENT_TYPE_CHOICES,
+    Attendance,
+    Course,
+    CourseSession,
+    CourseType,
+    Registration,
+)
+from .permissions import CoursePermissionMixin, requires_course_managing_permission
 
 
 class CourseSessionInline(admin.TabularInline):
@@ -27,7 +38,7 @@ class CourseSessionInline(admin.TabularInline):
 
 
 @admin.register(Course)
-class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
     list_display = [
         "course_name",
         "course_type",
@@ -62,6 +73,23 @@ class CourseAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.prefetch_related("managing_users", "supporting_users", "instructors")
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+
+        try:
+            course = Course.objects.get(pk=object_id)
+            if self.has_course_manage_permission(request, course):
+                extra_context["show_export_registrations"] = True
+
+                export_url = reverse("admin:courses_course_export_registrations", args=[object_id])
+                extra_context["export_button"] = format_html(
+                    '<a class="button" href="{}";display:inline-block;">export registrations</a>', export_url
+                )
+        except Course.DoesNotExist:
+            pass
+
+        return super().change_view(request, object_id, form_url, extra_context)
 
 
 @admin.register(CourseSession)
@@ -113,8 +141,21 @@ class RegistrationExcelUploadForm(forms.Form):
     )
 
 
+class RegistrationSazitoUploadForm(forms.Form):
+    csv_file = forms.FileField(label="Registration csv file", required=True)
+    update_name = forms.BooleanField(initial=False, required=False)
+    make_transaction = forms.BooleanField(initial=True, required=False)
+    course = forms.ModelChoiceField(
+        queryset=Course.objects.all(),
+        widget=autocomplete.ModelSelect2(url="course-autocomplete"),
+        label="Course",
+        required=True,
+        help_text="Select the course for which you are uploading registrations.",
+    )
+
+
 @admin.register(Registration)
-class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
     list_display = [
         "user",
         "course",
@@ -141,13 +182,10 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "course__course_type__name",
     ]
     readonly_fields = [
-        "user",
-        "course",
-        "registration_date",
         "_created_at",
         "_updated_at",
     ]
-    autocomplete_fields = ["supporting_user"]
+    autocomplete_fields = ["user", "course", "supporting_user"]
     fieldsets = (
         (
             "Registration Information",
@@ -155,7 +193,14 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
         (
             "Payment Information",
-            {"fields": ("payment_status", "tuition", "next_payment_date", "payment_description")},
+            {
+                "fields": (
+                    "payment_status",
+                    ("initial_price", "discount", "tuition"),
+                    "next_payment_date",
+                    "payment_description",
+                )
+            },
         ),
         ("Additional Information", {"fields": ("description",)}),
         (
@@ -173,12 +218,24 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         extra_context["upload_excel_button"] = format_html(
             '<a class="button" href="{}";display:inline-block;">Upload Excel</a>', upload_url
         )
+        sazito_url = reverse("admin:registration-upload-sazito")
+        extra_context["upload_sazito_button"] = format_html(
+            '<a class="button" href="{}";display:inline-block;">Upload Sazito</a>', sazito_url
+        )
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path("upload-excel/", self.admin_site.admin_view(self.upload_excel), name="registration-upload-excel"),
+            path(
+                "upload-sazito/", self.admin_site.admin_view(self.upload_sazito_file), name="registration-upload-sazito"
+            ),
+            path(
+                "<int:course_id>/export_registrations/",
+                self.admin_site.admin_view(self.export_registrations),
+                name="courses_course_export_registrations",
+            ),
         ]
         return custom_urls + urls
 
@@ -199,6 +256,213 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             extra_context["user_button"] = None
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        user = request.user
+        if user.is_superuser:
+            return fieldsets
+        if obj and obj.course.managing_users.filter(pk=user.pk).exists():
+            return fieldsets
+        filtered_fieldsets = []
+        for name, options in fieldsets:
+            if name == "Payment Information":
+                continue
+            filtered_fieldsets.append((name, options))
+        return filtered_fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj is None:
+            return readonly_fields
+        return [*readonly_fields, "user", "course", "registration_date"]
+
+    def get_list_display(self, request):
+        list_display = super().get_list_display(request)
+        user = request.user
+        if user.is_superuser:
+            return list_display
+        return [field for field in list_display if field != "payment_status"]
+
+    def get_list_filter(self, request):
+        list_filter = super().get_list_filter(request)
+        user = request.user
+        if user.is_superuser:
+            return list_filter
+        return [field for field in list_filter if field != "payment_status"]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related("user", "course", "supporting_user")
+        user = request.user
+        if user.is_superuser:
+            return qs
+        return qs.filter(
+            Q(course__managing_users=user) | Q(course__supporting_users=user) | Q(supporting_user=user) | Q(user=user)
+        ).distinct()
+
+    def _has_registration_permission(self, request, obj=None):
+        user = request.user
+        if user.is_superuser or obj is None:
+            return True
+        if obj.course.managing_users.filter(pk=user.pk).exists() or obj.supporting_user == user or obj.user == user:
+            return True
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return self._has_registration_permission(request, obj)
+
+    def has_change_permission(self, request, obj=None):
+        return self._has_registration_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        user = request.user
+        if user.is_superuser:
+            return True
+        if obj is None:
+            return True
+        return False
+
+    @staticmethod
+    def add_and_register_users(users_data, course, update_user=False, make_transaction=False):
+        from tqdm import tqdm
+
+        from commons.utils import get_status_from_text, normalize_national_id
+        from courses.models import Registration
+        from financials.models import INCOME_CATEGORY_REGISTRATION, CourseTransaction
+        from users.models import User
+
+        def make_none_empty_str(text):
+            if text == "":
+                return None
+            return text
+
+        users_dic = {
+            user[1]: user
+            for user in User.objects.all().values_list("id", "username", "first_name", "last_name", "phone_number")
+        }
+        users_dup_check = {f"{u[2]}{u[3]}".replace(" ", ""): u for u in users_dic.values() if u[3] not in [None, ""]}
+
+        registration_dic = {r[0]: r[1] for r in Registration.objects.filter(course=course).values_list("user_id", "id")}
+        course_transaction_dic = dict.fromkeys(
+            CourseTransaction.objects.filter(course=course).values_list("registration_id", flat=True), True
+        )
+        bad_name = 0
+        made_users = 0
+        made_registration = 0
+        logs = []
+
+        for data in tqdm(users_data):
+            phone = data["phone"]
+            username = data["username"]
+            first_name = data.get("first_name", "")
+            last_name = data.get("last_name", "")
+            telegram_id = data.get("telegram_id", "")
+            email = data.get("email", "")
+            education = User.get_education_from_text(data.get("education", None))
+            profession = data.get("profession", "")
+            age = data.get("age", None)
+            gender = User.get_gender_from_text(data.get("gender", ""))
+            national_id = normalize_national_id(data.get("national_id", "")) or ""
+            english_first_name = data.get("english_first_name", "")
+            english_last_name = data.get("english_last_name", "")
+            referer_name = data.get("referer_name", "")
+            tuition = data.get("tuition", 0) or 0
+            status, payment_status = get_status_from_text(data.get("status", None))
+            registration_date = data.get("registration_date", None)
+            discount = data.get("discount", 0) or 0
+            initial_price = data.get("initial_price", 0) or 0
+
+            if username in users_dic:
+                user = users_dic[username]
+                if user[2] != first_name or user[3] != last_name:
+                    bad_name += 1
+                    logs.append(
+                        [
+                            "bad name",
+                            str(phone),
+                            str(user[2]),
+                            str(user[3]),
+                            str(first_name),
+                            str(last_name),
+                        ]
+                    )
+                    if update_user:
+                        User.objects.filter(username=username).update(first_name=first_name, last_name=last_name)
+
+            elif users_dup_check.get(f"{first_name}{last_name}".replace(" ", ""), None) is not None:
+                user = users_dup_check[f"{first_name}{last_name}".replace(" ", "")]
+                u = User.objects.get(id=user[0])
+                if user[4] is None:
+                    u.phone_number = phone
+                    u.username = username
+                    users_dic[username] = [u.id, username, first_name, last_name, phone]
+                    user = users_dic[username]
+                u.telegram_id = make_none_empty_str(u.telegram_id) or telegram_id
+                u.email = make_none_empty_str(u.email) or email
+                u.profession = make_none_empty_str(u.profession) or profession
+                u.education = make_none_empty_str(u.education) or education
+                u.age = make_none_empty_str(u.age) or age
+                u.gender = make_none_empty_str(u.gender) or gender
+                u.national_id = make_none_empty_str(u.national_id) or national_id
+                u.english_first_name = make_none_empty_str(u.english_first_name) or english_first_name
+                u.english_last_name = make_none_empty_str(u.english_last_name) or english_last_name
+                u.referer_name = make_none_empty_str(u.referer_name) or referer_name
+                u.save()
+            else:
+                user = User.objects.create(
+                    username=username,
+                    phone_number=phone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    telegram_id=telegram_id,
+                    email=email,
+                    profession=profession,
+                    education=education,
+                    age=age,
+                    gender=gender,
+                    national_id=national_id,
+                    english_first_name=english_first_name,
+                    english_last_name=english_last_name,
+                    referer_name=referer_name,
+                )
+                made_users += 1
+                user = [user.id, user.username, user.first_name, user.last_name, user.phone_number]
+                users_dup_check[f"{first_name}{last_name}".replace(" ", "")] = user
+                users_dic[username] = user
+
+            if registration_dic.get(user[0], None) is None:
+                try:
+                    reg = Registration.objects.create(
+                        user_id=user[0],
+                        course=course,
+                        status=status,
+                        payment_status=payment_status,
+                        tuition=tuition,
+                        initial_price=initial_price,
+                        discount=discount,
+                        registration_date=registration_date,
+                    )
+                    registration_dic[user[0]] = reg.id
+                    made_registration += 1
+                except Exception as e:
+                    logs.append(["Error", str(phone), str(user[2]), str(user[3]), first_name, str(e)])
+            if make_transaction and course_transaction_dic.get(registration_dic[user[0]], None) is None:
+                course_transaction = CourseTransaction.objects.create(
+                    registration_id=registration_dic[user[0]],
+                    user_account_id=user[0],
+                    course=course,
+                    amount=tuition,
+                    transaction_type=1,
+                    transaction_category=INCOME_CATEGORY_REGISTRATION,
+                    financial_account=data["financial_account"],
+                    date=registration_date,
+                    entry_user=data["entry_user"],
+                    tracking_code=data.get("tracking_code", ""),
+                )
+                course_transaction.transaction = course_transaction.create_transaction()
+                course_transaction.save()
+                course_transaction_dic[registration_dic[user[0]]] = True
+        return logs, made_users, made_registration, bad_name
+
     def upload_excel(self, request):
         if request.method == "POST":
             form = RegistrationExcelUploadForm(request.POST, request.FILES)
@@ -206,13 +470,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 excel_file = request.FILES["excel_file"]
                 sheet_name = form.cleaned_data.get("sheet_name")
                 try:
-                    df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                    df = pd.read_excel(excel_file, sheet_name=sheet_name, dtype={"fix phone": str, "سن": str})
                 except Exception as e:
                     self.message_user(request, f"Error reading Excel file: {e}", level="error")
                     return redirect(request.path)
                 if not request.POST.get("confirm_preview"):
                     preview_data = df.loc[:, ["fix phone", "نام", "نام خانوادگی", "مبلغ نهایی"]]
-                    df = df.dropna(subset=["نام", "نام خانوادگی", "fix phone"])
+                    df = df.dropna(how="all", subset=["نام", "نام خانوادگی", "fix phone"])
                     preview_html = preview_data.to_html(index=False, classes="table table-bordered table-sm")
                     return render(
                         request,
@@ -231,13 +495,10 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
                     from tqdm import tqdm
 
-                    from commons.utils import get_national_id, get_status_from_text, normalize_phone
-                    from courses.models import Registration
-                    from users.models import User
+                    from commons.utils import normalize_phone
 
-                    df = pd.read_excel(excel_file, sheet_name=sheet_name, dtype={"fix phone": str, "سن": str})
                     df = df.where(pd.notnull(df), None)
-                    df = df.dropna(subset=["نام", "نام خانوادگی", "fix phone"])
+                    df = df.dropna(how="all", subset=["نام", "نام خانوادگی", "fix phone"])
                     good_phone = []
                     bad_phone = []
                     for phone in df["fix phone"]:
@@ -248,43 +509,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     good_phone = list(set(good_phone))
                     bad_phone = list(set(bad_phone))
 
-                    users_dic = {
-                        user[1]: user
-                        for user in User.objects.all().values_list(
-                            "id", "username", "first_name", "last_name", "phone_number"
-                        )
-                    }
-                    users_dup_check = {
-                        f"{u[2]}{u[3]}".replace(" ", ""): u for u in users_dic.values() if u[3] not in [None, ""]
-                    }
-
-                    def get_gender(gender):
-                        if gender in ["M", "m", "مرد", "آقا"]:
-                            return 1
-                        elif gender in ["F", "f", "زن", "خانم"]:
-                            return 2
-                        return None
-
-                    def get_education(education):
-                        if education in ["کمتر از کارشناسی"]:
-                            return 1
-                        elif education in ["کارشناسی"]:
-                            return 2
-                        elif education in ["کارشناسی ارشد"]:
-                            return 3
-                        elif education in ["دکتری و بالاتر"]:
-                            return 4
-                        return None
-
-                    done_registrations = Registration.objects.values_list("user_id", "course_id")
-                    registration_dic = {f"{reg[0]}-{reg[1]}": True for reg in done_registrations}
-
-                    bad_name = 0
-                    made_users = 0
-                    made_registration = 0
                     no_phone = 0
                     logs = []
-
+                    users_data = []
                     for index, row in tqdm(df.iterrows(), total=df.shape[0]):
                         phone = normalize_phone(row["fix phone"])
                         first_name = row.get("نام", "")
@@ -293,23 +520,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                         last_name = row.get("نام خانوادگی", "")
                         if last_name:
                             last_name = last_name.strip()
-                        telegram_id = row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None) or ""
-                        email = row.get("ایمیل", "") or ""
-                        education = get_education(row.get("تحصیلات", ""))
-                        profession = row.get("حرفه", "") or ""
-                        age = row.get("سن", None)
-                        gender = get_gender(row.get("جنسیت", None))
-                        national_id = get_national_id(row.get("کد ملی", "")) or ""
-                        english_first_name = row.get("Name", "") or ""
-                        english_last_name = row.get("Surname", "") or ""
-                        referer_name = row.get("معرف", None) or ""
+                        telegram_id = row.get("تلگرام", None) or row.get("آی‌دی تلگرام", None)
 
                         if phone == "":
                             phone = None
                         if phone is None and first_name is None and last_name is None:
                             continue
                         last_name = last_name or ""
-
                         if phone is None:
                             name_hash = hashlib.sha256(f"{first_name}{last_name}".encode()).hexdigest()[:10]
                             username = f"from_upload_{name_hash}"
@@ -317,86 +534,31 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                             logs.append(["No Phone", str(index), str(first_name), str(last_name), str(phone)])
                         else:
                             username = phone
-                        if username in users_dic:
-                            user = users_dic[username]
-                            if user[2] != first_name or user[3] != last_name:
-                                bad_name += 1
-                                logs.append(
-                                    [
-                                        "bad name",
-                                        str(phone),
-                                        str(user[2]),
-                                        str(user[3]),
-                                        str(first_name),
-                                        str(last_name),
-                                    ]
-                                )
-                                if update_name:
-                                    User.objects.filter(username=username).update(
-                                        first_name=first_name, last_name=last_name
-                                    )
 
-                        elif users_dup_check.get(f"{first_name}{last_name}".replace(" ", ""), None) is not None:
-                            user = users_dup_check[f"{first_name}{last_name}".replace(" ", "")]
-                            u = User.objects.get(id=user[0])
-                            if user[4] is None:
-                                u.phone_number = phone
-                                u.username = username
-                                users_dic[username] = [u.id, username, first_name, last_name, phone]
-                                user = users_dic[username]
-                            u.telegram_id = u.telegram_id if u.telegram_id not in [None, ""] else telegram_id
-                            u.email = u.email if u.email not in [None, ""] else email
-                            u.profession = u.profession if u.profession not in [None, ""] else profession
-                            u.education = u.education if u.education not in [None, ""] else education
-                            u.age = u.age if u.age not in [None, 0] else age
-                            u.gender = u.gender if u.gender not in [None, ""] else gender
-                            u.national_id = u.national_id if u.national_id not in [None, ""] else national_id
-                            u.english_first_name = (
-                                u.english_first_name if u.english_first_name not in [None, ""] else english_first_name
-                            )
-                            u.english_last_name = (
-                                u.english_last_name if u.english_last_name not in [None, ""] else english_last_name
-                            )
-                            u.referer_name = u.referer_name if u.referer_name not in [None, ""] else referer_name
-                            u.save()
-                        else:
-                            user = User.objects.create(
-                                username=username,
-                                phone_number=phone,
-                                first_name=first_name,
-                                last_name=last_name,
-                                telegram_id=telegram_id,
-                                email=email,
-                                profession=profession,
-                                education=education,
-                                age=age,
-                                gender=gender,
-                                national_id=national_id,
-                                english_first_name=english_first_name,
-                                english_last_name=english_last_name,
-                                referer_name=referer_name,
-                            )
-                            made_users += 1
-                            user = [user.id, user.username, user.first_name, user.last_name, user.phone_number]
-                            users_dup_check[f"{first_name}{last_name}".replace(" ", "")] = user
-                            users_dic[username] = user
-                        status, payment_status = get_status_from_text(row.get("وضعیت", None))
-                        tuition = row.get("مبلغ نهایی", 0) or 0
-                        tuition = float(tuition) * currency_to_toman_multiplier
-                        if registration_dic.get(f"{user[0]}-{selected_course.id}", None) is not None:
-                            continue
-                        try:
-                            Registration.objects.create(
-                                user_id=user[0],
-                                course=selected_course,
-                                status=status,
-                                payment_status=payment_status,
-                                tuition=tuition,
-                            )
-                            registration_dic[f"{user[0]}-{selected_course.id}"] = True
-                            made_registration += 1
-                        except Exception as e:
-                            logs.append(["Error", str(phone), str(user[2]), str(user[3]), row.get("نام"), str(e)])
+                        users_data.append(
+                            {
+                                "username": username,
+                                "phone": phone,
+                                "first_name": first_name,
+                                "last_name": last_name,
+                                "telegram_id": telegram_id,
+                                "email": row.get("ایمیل", ""),
+                                "education": row.get("تحصیلات", ""),
+                                "profession": row.get("حرفه", ""),
+                                "national_id": row.get("کد ملی", ""),
+                                "age": row.get("سن", None),
+                                "gender": row.get("جنسیت", None),
+                                "english_first_name": row.get("Name", ""),
+                                "english_last_name": row.get("Surname", ""),
+                                "referer_name": row.get("معرف", None),
+                                "status": row.get("وضعیت", None),
+                                "tuition": float(row.get("مبلغ نهایی", 0) or 0) * currency_to_toman_multiplier,
+                            }
+                        )
+                    new_logs, made_users, made_registration, bad_name = self.add_and_register_users(
+                        users_data, selected_course, update_name
+                    )
+                    logs = logs + new_logs
                     self.message_user(
                         request,
                         "Registrations imported"
@@ -431,64 +593,196 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         }
         return render(request, "admin/courses/registration/upload_registration_excel.html", context)
 
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = super().get_fieldsets(request, obj)
-        user = request.user
-        if user.is_superuser:
-            return fieldsets
-        if obj and obj.course.managing_users.filter(id=user.id).exists():
-            return fieldsets
-        filtered_fieldsets = []
-        for name, options in fieldsets:
-            if name == "Payment Information":
-                continue
-            filtered_fieldsets.append((name, options))
-        return filtered_fieldsets
+    @requires_course_managing_permission
+    def export_registrations(self, request, course_id):
+        try:
+            course = Course.objects.get(id=course_id)
+            registrations = (
+                Registration.objects.filter(course=course)
+                .select_related("user", "supporting_user")
+                .order_by("-registration_date")
+            )
+            data = []
+            for reg in registrations:
+                data.append(
+                    {
+                        "first name": reg.user.first_name,
+                        "last name": reg.user.last_name,
+                        "phone": getattr(reg.user, "phone_number", ""),
+                        "email": reg.user.email,
+                        "status": reg.status_display,
+                        "registration date": reg.registration_date.strftime("%Y/%m/%d %H:%M")
+                        if reg.registration_date
+                        else "",
+                        "قیمت اولیه": reg.initial_price,
+                        "تخفیف": reg.discount,
+                        "tax": reg.vat,
+                        "شهریه": reg.tuition,
+                        "وضعیت پرداخت": dict(PAYMENT_STATUS_CHOICES).get(reg.payment_status, ""),
+                        "نوع پرداخت": dict(PAYMENT_TYPE_CHOICES).get(reg.payment_type, ""),
+                        "تاریخ پرداخت بعدی": reg.next_payment_date.strftime("%Y/%m/%d")
+                        if reg.next_payment_date
+                        else "",
+                        "پشتیبان": f"{reg.supporting_user.first_name} {reg.supporting_user.last_name}"
+                        if reg.supporting_user
+                        else "",
+                        "توضیحات": reg.description or "",
+                        "توضیحات پرداخت": reg.payment_description or "",
+                    }
+                )
+            df = pd.DataFrame(data)
+            response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            response["Content-Disposition"] = f'attachment; filename="{course.course_name}_registrations.xlsx"'
 
-    def get_list_display(self, request):
-        list_display = super().get_list_display(request)
-        user = request.user
-        if user.is_superuser:
-            return list_display
-        return [field for field in list_display if field != "payment_status"]
+            from io import BytesIO
 
-    def get_list_filter(self, request):
-        list_filter = super().get_list_filter(request)
-        user = request.user
-        if user.is_superuser:
-            return list_filter
-        return [field for field in list_filter if field != "payment_status"]
+            excel_buffer = BytesIO()
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("user", "course", "supporting_user")
-        user = request.user
-        if user.is_superuser:
-            return qs
-        return qs.filter(
-            Q(course__managing_users=user) | Q(course__supporting_users=user) | Q(supporting_user=user) | Q(user=user)
-        ).distinct()
+            with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="registration")
 
-    def _has_registration_permission(self, request, obj=None):
-        user = request.user
-        if user.is_superuser or obj is None:
-            return True
-        if obj.course.managing_users.filter(id=user.id).exists() or obj.supporting_user == user or obj.user == user:
-            return True
-        return False
+            excel_buffer.seek(0)
+            response.write(excel_buffer.getvalue())
 
-    def has_view_permission(self, request, obj=None):
-        return self._has_registration_permission(request, obj)
+            messages.success(request, f"فایل اکسل ثبت نام های دوره {course.course_name} با موفقیت ایجاد شد.")
+            return response
 
-    def has_change_permission(self, request, obj=None):
-        return self._has_registration_permission(request, obj)
+        except Course.DoesNotExist:
+            messages.error(request, "دوره مورد نظر یافت نشد.")
+            return redirect("admin:courses_course_changelist")
+        except Exception as e:
+            messages.error(request, f"خطا در ایجاد فایل اکسل: {e!s}")
+            return redirect("admin:courses_course_change", course_id)
 
-    def has_delete_permission(self, request, obj=None):
-        user = request.user
-        if user.is_superuser:
-            return True
-        if obj is None:
-            return True
-        return False
+    def upload_sazito_file(self, request):
+        if request.method == "POST":
+            form = RegistrationSazitoUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                csv_file = request.FILES["csv_file"]
+                try:
+                    df = pd.read_csv(
+                        csv_file, dtype={"first name": str, "last name": str, "Payment Reference Code": str}
+                    )
+                except Exception as e:
+                    self.message_user(request, f"Error reading csv file: {e}", level="error")
+                    return redirect(request.path)
+                if not request.POST.get("confirm_preview"):
+                    preview_data = df.loc[:, ["first name", "last name", "Mobile Number"]]
+                    df = df.dropna(how="all", subset=["first name", "last name", "Mobile Number"])
+                    preview_html = preview_data.to_html(index=False, classes="table table-bordered table-sm")
+                    return render(
+                        request,
+                        "admin/courses/registration/upload_sazito_file.html",
+                        {
+                            "form": form,
+                            "preview_html": preview_html,
+                            "show_confirm": True,
+                        },
+                    )
+                selected_course = form.cleaned_data["course"]
+                update_name = form.cleaned_data.get("update_name")
+                make_transaction = form.cleaned_data.get("make_transaction", True)
+                try:
+                    import hashlib
+                    from datetime import datetime
+
+                    from commons.utils import normalize_phone
+
+                    bad_name = 0
+                    logs = []
+                    data = []
+                    no_phone = 0
+                    df = df.where(pd.notnull(df), None)
+                    df = df.dropna(how="all", subset=["first name", "last name", "Mobile Number"])
+                    for index, row in df.iterrows():
+                        phone = normalize_phone(row["Mobile Number"])
+                        first_name = (row["first name"] or "").strip()
+                        last_name = (row["last name"] or "").strip()
+                        if phone is None or str(phone).strip() == "":
+                            continue
+                        details = {}
+                        if row["Product Details"] is not None:
+                            details = {
+                                item.split(":", 1)[0].strip(): item.split(":", 1)[1].strip()
+                                for item in row["Product Details"].split(",")
+                                if ":" in item
+                            }
+
+                        if phone == "":
+                            phone = None
+                        if phone is None and first_name is None and last_name is None:
+                            continue
+                        last_name = last_name or ""
+                        if phone is None:
+                            name_hash = hashlib.sha256(f"{first_name}{last_name}".encode()).hexdigest()[:10]
+                            username = f"from_upload_{name_hash}"
+                            no_phone += 1
+                            logs.append(["No Phone", str(first_name), str(last_name), str(phone)])
+                        else:
+                            username = phone
+
+                        data.append(
+                            {
+                                "index": index,
+                                "phone": phone,
+                                "username": username,
+                                "first_name": first_name,
+                                "last_name": last_name,
+                                "email": row["Email"],
+                                "tuition": row["Final Total"],
+                                "initial_price": row["Net Total"],
+                                "discount": row["Discount Amount"],
+                                "education": details.get("تحصیلات", ""),
+                                "profession": details.get("حرفه تخصصی", ""),
+                                "telegram_id": details.get("آی\u200cدی تلگرام جهت عضو شدن در گروه دوره", ""),
+                                "age": details.get("سن", None),
+                                "referer_name": details.get("معرف", ""),
+                                "registration_date": datetime.strptime(
+                                    str(row["Created at (gregorian)"]), "%m/%d/%Y %H:%M"
+                                ),
+                                "tracking_code": row["Payment Reference Code"],
+                                "financial_account": FinancialAccount.objects.get(name="پی‌پینگ"),
+                                "entry_user": request.user,
+                            }
+                        )
+
+                    new_logs, made_users, made_registration, bad_name = self.add_and_register_users(
+                        data, selected_course, update_name, make_transaction
+                    )
+                    logs = logs + new_logs
+                    self.message_user(
+                        request,
+                        "Registrations imported"
+                        + " ".join(
+                            [
+                                "Done",
+                                str(bad_name),
+                                "bad name",
+                                str(no_phone),
+                                "no_phone",
+                                str(made_registration),
+                                "made registrations",
+                                str(made_users),
+                                "made users",
+                            ]
+                        )
+                        + "\n".join([" ".join(log) for log in logs]),
+                        messages.SUCCESS,
+                    )
+                except Exception as e:
+                    import logging
+
+                    logger = logging.getLogger(__name__)
+                    logger.exception("Error importing registrations from Excel")
+                    self.message_user(request, f"Error importing registrations: {e}", messages.ERROR)
+                return redirect("..")
+        else:
+            form = RegistrationSazitoUploadForm()
+        context = {
+            "form": form,
+            **self.admin_site.each_context(request),
+        }
+        return render(request, "admin/courses/registration/upload_sazito_file.html", context)
 
 
 @admin.register(Attendance)

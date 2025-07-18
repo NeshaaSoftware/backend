@@ -1,0 +1,10 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools-items %}
+    {% if show_export_registrations %}
+    <li>
+        {{ export_button|safe }}
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

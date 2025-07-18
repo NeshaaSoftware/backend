@@ -1,5 +1,6 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django.contrib import admin
+from django.contrib.admin import ModelAdmin
 from django.contrib.admin.filters import (
     AllValuesFieldListFilter,
     ChoicesFieldListFilter,
@@ -7,7 +8,7 @@ from django.contrib.admin.filters import (
     RelatedOnlyFieldListFilter,
     SimpleListFilter,
 )
-from django.contrib.admin.models import ADDITION, LogEntry
+from django.contrib.admin.models import ADDITION
 from django.contrib.contenttypes.models import ContentType
 
 from commons.models import DetailedLog
@@ -35,16 +36,6 @@ class RelatedOnlyDropdownFilter(RelatedOnlyFieldListFilter):
 
 class DetailedLogAdminMixin:
     save_on_top = True
-
-    def log_django_admin_action(self, request, object, action_flag, change_message=None):
-        LogEntry.objects.log_action(
-            user_id=request.user.pk if request.user.is_authenticated else None,
-            content_type_id=ContentType.objects.get_for_model(object.__class__).pk,
-            object_id=object.pk,
-            object_repr=str(object),
-            action_flag=action_flag,
-            change_message=change_message or "",
-        )
 
     def _get_field_values(self, obj):
         return {field.name: getattr(obj, field.name) for field in obj._meta.fields}
@@ -96,6 +87,7 @@ class DetailedLogAdminMixin:
 
     def log_deletion(self, request, obj, object_repr):
         import warnings
+
         from django.contrib.admin.models import DELETION
         from django.utils.deprecation import RemovedInDjango60Warning
 
@@ -116,8 +108,6 @@ class DetailedLogAdminMixin:
 
     def log_deletions(self, request, queryset):
         import warnings
-
-        from django.contrib.admin import ModelAdmin
 
         """
         Log that objects will be deleted. Note that this method must be called

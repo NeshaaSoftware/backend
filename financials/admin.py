@@ -1,7 +1,8 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
-from django.contrib import admin
-from django.urls import reverse
+from django.contrib import admin, messages
+from django.http import HttpResponseRedirect
+from django.urls import path, reverse
 from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
@@ -17,7 +18,7 @@ class FinancialAccountAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     filter_horizontal = ("course",)
     fieldsets = (
         ("Account Information", {"fields": ("name", "description", "course")}),
-        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
 
 
@@ -28,7 +29,7 @@ class CommodityAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     readonly_fields = ("_created_at", "_updated_at")
     fieldsets = (
         ("Commodity Information", {"fields": ("name", "description")}),
-        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
 
 
@@ -39,7 +40,7 @@ class CustomerAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     readonly_fields = ("_created_at", "_updated_at")
     fieldsets = (
         ("Customer Information", {"fields": ("name", "customer_type", "tax_id", "national_id", "contact", "address")}),
-        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
 
 
@@ -79,7 +80,7 @@ class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     fieldsets = (
         ("اطلاعات فاکتور", {"fields": ("type", "date", "customer", "course", "orgnization", "description")}),
         ("مبالغ", {"fields": ("items_amount", "discount", "vat", "total_amount", "is_paid")}),
-        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
     )
 
 
@@ -129,7 +130,7 @@ class InvoiceItemAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     fieldsets = (
         ("اطلاعات آیتم فاکتور", {"fields": ("invoice", "commodity", "description")}),
         ("مبالغ", {"fields": ("unit_price", "quantity", "discount", "vat", "total_price")}),
-        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
     )
 
 
@@ -146,7 +147,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "id",
         "invoice",
         "transaction_type",
-        "date",
+        "transaction_date",
         "amount",
         "fee",
         "net_amount",
@@ -161,13 +162,10 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "_updated_at",
     )
     search_fields = (
-        "invoice__id",
-        "tracking_code",
-        "account__name",
-        "course__course_name",
+        "id",
         "user_account__username",
-        "entry_user__username",
     )
+
     list_filter = (
         "transaction_type",
         ("account", DALFRelatedFieldAjax),
@@ -175,7 +173,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("invoice", DALFRelatedFieldAjax),
         ("user_account", DALFRelatedFieldAjax),
         ("entry_user", DALFRelatedFieldAjax),
-        "date",
+        "transaction_date",
     )
     readonly_fields = ("net_amount", "_created_at", "_updated_at")
     autocomplete_fields = (
@@ -193,7 +191,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     "invoice",
                     "transaction_type",
                     "transaction_category",
-                    "date",
+                    "transaction_date",
                     "account",
                     "course",
                     "user_account",
@@ -205,11 +203,26 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             },
         ),
         ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
-        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
     )
 
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            transaction = self.get_object(request, object_id)
+            if transaction:
+                course_transactions_url = reverse("admin:financials_coursetransaction_changelist")
+                course_transactions_url += f"?transaction__id__exact={transaction.id}"
+                extra_context["go_to_course_transactions_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block; margin-left: 10px;">Go to Course Transactions</a>',
+                    course_transactions_url,
+                )
+        except Exception:
+            messages.error(request, "Error retrieving CourseTransaction.")
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
-class CourseTransactionInlineForm(forms.ModelForm):
+
+class CourseTransactionInlineForm(FinancialNumberFormMixin, forms.ModelForm):
     class Meta:
         model = CourseTransaction
         fields = "__all__"  # noqa
@@ -219,20 +232,16 @@ class CourseTransactionInlineForm(forms.ModelForm):
             "net_amount": "خالص مبلغ به تومان",
         }
 
-    def __init__(self, *args, parent_registration=None, **kwargs):
+    def __init__(self, *args, parent_registration=None, request=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.parent_registration = parent_registration
+        self.request = request
+        if not self.instance.pk:
+            self.fields["transaction_category"].initial = 10
 
-    def change_view(self, request, object_id, form_url="", extra_context=None):
-        extra_context = extra_context or {}
-        try:
-            url = reverse("admin:financials_coursetransaction_change", args=[])
-            extra_context["make_transaction_button"] = format_html(
-                '<a class="button" href="{}";display:inline-block;">Make Transaction</a>', url
-            )
-        except Exception:
-            extra_context["make_transaction_button"] = None
-        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+        if parent_registration and hasattr(parent_registration, "course"):
+            course = parent_registration.course
+            self.fields["financial_account"].queryset = FinancialAccount.objects.filter(course=course)
 
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -240,6 +249,10 @@ class CourseTransactionInlineForm(forms.ModelForm):
             instance.registration = self.parent_registration
             if hasattr(self.parent_registration, "course"):
                 instance.course = self.parent_registration.course
+
+        if not instance.pk and self.request:
+            instance.entry_user = self.request.user
+
         if commit:
             instance.save()
         return instance
@@ -249,7 +262,7 @@ class CourseTransactionInline(admin.TabularInline):
     model = CourseTransaction
     form = CourseTransactionInlineForm
     extra = 0
-    readonly_fields = ("net_amount", "entry_user")
+    readonly_fields = ("net_amount", "entry_user", "_created_at", "_updated_at")
     exclude = (
         "course",
         "user_account",
@@ -257,32 +270,62 @@ class CourseTransactionInline(admin.TabularInline):
     show_change_link = True
     verbose_name = "تراکنش مالی ثبت‌نام"
     verbose_name_plural = "تراکنش‌های مالی ثبت‌نام"
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "transaction_date",
+                    "transaction_type",
+                    "transaction_category",
+                    "financial_account",
+                    "amount",
+                    "fee",
+                    "entry_user",
+                    "tracking_code",
+                    "description",
+                    "_created_at",
+                    "_updated_at",
+                )
+            },
+        ),
+    )
 
     def get_formset(self, request, obj=None, **kwargs):
         FormSet = super().get_formset(request, obj, **kwargs)
         parent_registration = obj
 
         class WrappedFormSet(FormSet):
-            def _construct_form(self, i, **form_kwargs):
-                form_kwargs["parent_registration"] = parent_registration
-                return super()._construct_form(i, **form_kwargs)
+            def get_form_kwargs(self, index):
+                kwargs = super().get_form_kwargs(index)
+                kwargs["parent_registration"] = parent_registration
+                kwargs["request"] = request
+                return kwargs
 
         return WrappedFormSet
 
 
+class CourseTransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
+    class Meta:
+        model = CourseTransaction
+        fields = "__all__"  # noqa
+
+
 @admin.register(CourseTransaction)
 class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
+    form = CourseTransactionAdminForm
     list_display = (
         "id",
         "transaction",
         "transaction_type",
         "transaction_category",
+        "financial_account",
         "course",
         "registration",
         "amount",
         "fee",
         "net_amount",
-        "date",
+        "transaction_date",
         "entry_user",
         "user_account",
         "customer_name",
@@ -291,33 +334,35 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "_created_at",
         "_updated_at",
     )
+    list_display_links = ("id", "transaction", "transaction_type")
     search_fields = (
+        "id",
         "transaction__id",
-        "course__name",
-        "registration__id",
-        "entry_user__username",
         "user_account__username",
         "customer_name",
         "tracking_code",
-        "description",
     )
     list_filter = (
         "transaction_type",
         "transaction_category",
+        ("transaction", DALFRelatedFieldAjax),
+        ("financial_account", DALFRelatedFieldAjax),
         ("course", DALFRelatedFieldAjax),
         ("registration", DALFRelatedFieldAjax),
         ("entry_user", DALFRelatedFieldAjax),
         ("user_account", DALFRelatedFieldAjax),
-        "date",
+        "transaction_date",
     )
-    readonly_fields = ("net_amount", "_created_at", "_updated_at")
+    readonly_fields = ("net_amount", "entry_user", "_created_at", "_updated_at")
     autocomplete_fields = (
         "transaction",
+        "financial_account",
         "course",
         "registration",
         "entry_user",
         "user_account",
     )
+
     fieldsets = (
         (
             "اطلاعات تراکنش دوره",
@@ -326,16 +371,100 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     "transaction",
                     "transaction_type",
                     "transaction_category",
+                    "financial_account",
                     "course",
                     "registration",
                     "entry_user",
                     "user_account",
                     "customer_name",
                     "tracking_code",
+                    "transaction_date",
                     "description",
                 )
             },
         ),
         ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
-        ("زمان‌بندی", {"fields": ("date", "_created_at", "_updated_at"), "classes": ("collapse",)}),
+        (None, {"fields": ("_created_at", "_updated_at")}),
     )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "financial_account":
+            course_id = None
+            if hasattr(request, "resolver_match") and request.resolver_match:
+                if "object_id" in request.resolver_match.kwargs:
+                    try:
+                        obj_id = request.resolver_match.kwargs["object_id"]
+                        existing_obj = CourseTransaction.objects.get(pk=obj_id)
+                        course_id = existing_obj.course_id
+                    except CourseTransaction.DoesNotExist:
+                        pass
+
+            if not course_id:
+                course_id = request.GET.get("course") or request.POST.get("course")
+
+            if course_id:
+                try:
+                    kwargs["queryset"] = FinancialAccount.objects.filter(course=course_id)
+                except Exception:
+                    messages.error(request, "Error retrieving FinancialAccount.")
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.entry_user = request.user
+        return super().save_model(request, obj, form, change)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser:
+            qs = qs.filter(course__managing_users=request.user)
+        return qs
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<int:object_id>/make-transaction/",
+                self.admin_site.admin_view(self.make_course_transaction),
+                name="make_course_transaction",
+            ),
+        ]
+        return custom_urls + urls
+
+    def make_course_transaction(self, request, object_id):
+        try:
+            course_transaction = self.get_object(request, object_id)
+            if course_transaction is None:
+                messages.error(request, "CourseTransaction not found.")
+                return HttpResponseRedirect(reverse("admin:financials_coursetransaction_changelist"))
+
+            if course_transaction.transaction:
+                messages.warning(request, "Transaction already exists for this CourseTransaction.")
+                return HttpResponseRedirect(reverse("admin:financials_coursetransaction_change", args=[object_id]))
+
+            course_transaction.transaction = course_transaction.create_transaction(entry_user=request.user)
+            course_transaction.save()
+
+            messages.success(
+                request,
+                f"Transaction #{course_transaction.transaction.id} successfully created and linked to CourseTransaction #{course_transaction.id}.",
+            )
+
+        except Exception as e:
+            messages.error(request, f"Error creating transaction: {e!s}")
+
+        return HttpResponseRedirect(reverse("admin:financials_coursetransaction_change", args=[object_id]))
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            course_transaction = self.get_object(request, object_id)
+            if course_transaction and not course_transaction.transaction:
+                url = reverse("admin:make_course_transaction", args=[object_id])
+                extra_context["make_transaction_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block;">Make Transaction</a>', url
+                )
+        except Exception:
+            messages.error(request, "Error retrieving CourseTransaction.")
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)

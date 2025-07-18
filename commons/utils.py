@@ -55,15 +55,6 @@ def normalize_phone(phone: str) -> str | None:
 
 
 def normalize_national_id(national_id: str) -> str | None:
-    """
-    Normalize Iranian national ID to 10-digit format.
-
-    Args:
-        national_id: National ID string
-
-    Returns:
-        Normalized 10-digit national ID or None if invalid
-    """
     if not national_id:
         return None
 

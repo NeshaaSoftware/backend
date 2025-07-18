@@ -1,3 +1,4 @@
+import jdatetime
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -30,8 +31,8 @@ CRM_LOG_ACTION_CHOICES = [(1, "تماس موفق"), (2, "تماس ناموفق")
 
 
 class Orgnization(TimeStampedModel):
-    name = models.CharField(max_length=100, unique=True, verbose_name="نام سازمان")
-    description = models.TextField(blank=True, null=True, verbose_name="توضیحات")
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, null=True)
     contact_user = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
@@ -109,6 +110,26 @@ class User(TimeStampedModel, AbstractUser):
             crm_user = CrmUser.objects.create(user=self)
         return crm_user
 
+    @staticmethod
+    def get_education_from_text(education):
+        if education in ["کمتر از کارشناسی"]:
+            return 1
+        elif education in ["کارشناسی"]:
+            return 2
+        elif education in ["کارشناسی ارشد"]:
+            return 3
+        elif education in ["دکتری و بالاتر"]:
+            return 4
+        return None
+
+    @staticmethod
+    def get_gender_from_text(gender):
+        if gender in ["M", "m", "مرد", "آقا"]:
+            return 1
+        elif gender in ["F", "f", "زن", "خانم"]:
+            return 2
+        return None
+
 
 class CrmUserLabel(TimeStampedModel):
     name = models.CharField(max_length=50, unique=True)
@@ -144,7 +165,7 @@ class CrmLog(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
     action = models.IntegerField(choices=CRM_LOG_ACTION_CHOICES, default=1, db_index=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="crm_logs")
-    date = jmodels.jDateTimeField(blank=True, db_index=True)
+    date = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now, db_index=True)
 
     class Meta:
         ordering = ["-date"]

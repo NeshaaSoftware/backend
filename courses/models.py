@@ -1,3 +1,4 @@
+import jdatetime
 from django.db import models
 from django_jalali.db import models as jmodels
 
@@ -103,7 +104,7 @@ class Registration(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="registrations")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="registrations")
     status = models.IntegerField(choices=STATUS_CHOICES, default=1)
-    registration_date = jmodels.jDateTimeField(auto_now_add=True)
+    registration_date = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now)
     initial_price = models.PositiveIntegerField(default=0, help_text="تومان")
     discount = models.PositiveIntegerField(default=0, help_text="تومان")
     vat = models.PositiveIntegerField(default=0, help_text="تومان")
@@ -139,7 +140,7 @@ class Registration(TimeStampedModel):
 class Attendance(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="attendances")
     session = models.ForeignKey(CourseSession, on_delete=models.CASCADE, related_name="attendances")
-    attended_at = jmodels.jDateTimeField(auto_now_add=True)
+    attended_at = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now)
 
     class Meta:
         verbose_name = "Attendance"

@@ -1,0 +1,10 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools-items %}
+    {% if go_to_course_transactions_button %}
+        <li>
+            {{ go_to_course_transactions_button|safe }}
+        <li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

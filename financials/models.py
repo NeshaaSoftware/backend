@@ -7,10 +7,17 @@ from commons.models import TimeStampedModel
 from courses.models import Course
 
 
+ASSET_TYPE_CHOICES = [
+    (1, "ریال"),
+    (2, "صندوق درآمد ثابت"),
+    (3, "رمز ارز"),
+    (4, "ارز"),
+]
 class FinancialAccount(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     course = models.ManyToManyField(Course, related_name="financial_accounts", blank=True)
     description = models.TextField(blank=True, default="")
+    asset_type = models.IntegerField(choices=ASSET_TYPE_CHOICES, default=1, help_text="نوع دارایی")
 
     def __str__(self):
         return self.name
@@ -50,7 +57,7 @@ INVOICE_TYPE_CHOICES = [(1, "خرید"), (2, "فروش")]
 
 
 class Invoice(TimeStampedModel):
-    orgnization = models.IntegerField(choices=[(1, "Neshaa"), (2, "azno")], default=1)
+    organization = models.IntegerField(choices=[(1, "Neshaa"), (2, "azno")], default=1)
     type = models.IntegerField(choices=INVOICE_TYPE_CHOICES)
     date = jmodels.jDateField()
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL, related_name="invoices")

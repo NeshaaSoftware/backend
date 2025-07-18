@@ -84,7 +84,7 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
 
                 export_url = reverse("admin:courses_course_export_registrations", args=[object_id])
                 extra_context["export_button"] = format_html(
-                    '<a class="button" href="{}";display:inline-block;">export registrations</a>', export_url
+                    '<a class="button" href="{}" style="display:inline-block;">export registrations</a>', export_url
                 )
         except Course.DoesNotExist:
             pass
@@ -133,7 +133,7 @@ class RegistrationExcelUploadForm(forms.Form):
         help_text="Multiplier to convert currency to Toman. Default is 1000 for Rials to Tomans.",
     )
     course = forms.ModelChoiceField(
-        queryset=Course.objects.all(),
+        queryset=Course.objects.select_related('course_type'),
         widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
@@ -146,7 +146,7 @@ class RegistrationSazitoUploadForm(forms.Form):
     update_name = forms.BooleanField(initial=False, required=False)
     make_transaction = forms.BooleanField(initial=True, required=False)
     course = forms.ModelChoiceField(
-        queryset=Course.objects.all(),
+        queryset=Course.objects.select_related('course_type'),
         widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
@@ -216,11 +216,11 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             extra_context = {}
         upload_url = reverse("admin:registration-upload-excel")
         extra_context["upload_excel_button"] = format_html(
-            '<a class="button" href="{}";display:inline-block;">Upload Excel</a>', upload_url
+            '<a class="button" href="{}" style="display:inline-block;">Upload Excel</a>', upload_url
         )
         sazito_url = reverse("admin:registration-upload-sazito")
         extra_context["upload_sazito_button"] = format_html(
-            '<a class="button" href="{}";display:inline-block;">Upload Sazito</a>', sazito_url
+            '<a class="button" href="{}" style="display:inline-block;">Upload Sazito</a>', sazito_url
         )
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -243,8 +243,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             registration = self.model.objects.get(pk=object_id)
             url_user = reverse("admin:users_user_change", args=[registration.user.id])
             url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
-            extra_context["user_button"] = format_html('<a class="button" href="{}";display:inline-block;">Go to User</a>', url_user)
-            extra_context["crm_user_button"] = format_html('<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url_crm)
+            extra_context["user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user)
+            extra_context["crm_user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm)
         except Exception:
             extra_context["crm_user_button"] = None
             extra_context["user_button"] = None
@@ -392,7 +392,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                 u.profession = make_none_empty_str(u.profession) or profession
                 u.education = make_none_empty_str(u.education) or education
                 u.age = make_none_empty_str(u.age) or age
-                u.gender = make_none_empty_str(u.gender) or gender
+                u.gender = u.gender if u.gender is not None else gender
                 u.national_id = make_none_empty_str(u.national_id) or national_id
                 u.english_first_name = make_none_empty_str(u.english_first_name) or english_first_name
                 u.english_last_name = make_none_empty_str(u.english_last_name) or english_last_name

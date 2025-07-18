@@ -30,7 +30,7 @@ CRM_USER_STATUS_CHOICES = [
 CRM_LOG_ACTION_CHOICES = [(1, "تماس موفق"), (2, "تماس ناموفق"), (3, "پیامک ارسال شد"), (4, "تلگرام ارسال شد")]
 
 
-class Orgnization(TimeStampedModel):
+class Organization(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True)
     contact_user = models.ForeignKey(
@@ -65,7 +65,7 @@ class User(TimeStampedModel, AbstractUser):
     country = models.CharField(max_length=50, blank=True, default="")
     city = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, null=True)
-    orgnization = models.ForeignKey(Orgnization, on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users")
+    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True, related_name="organization_users")
     main_user = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="other_users")
 
     USERNAME_FIELD = "username"
@@ -99,13 +99,13 @@ class User(TimeStampedModel, AbstractUser):
         super().save(*args, **kwargs)
 
         if is_new and not hasattr(self, "crm_user"):
-            CrmUser.objects.create(user=self)
+            CrmUser.objects.get_or_create(user=self)
 
     @property
     def _crm_user(self):
         crm_user = getattr(self, "crm_user", None)
         if crm_user is None:
-            crm_user = CrmUser.objects.create(user=self)
+            crm_user, _ = CrmUser.objects.get_or_create(user=self)
         return crm_user
 
     @staticmethod

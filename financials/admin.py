@@ -66,7 +66,7 @@ class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "items_amount",
         "discount",
         "vat",
-        "orgnization",
+        "organization",
         "_created_at",
         "_updated_at",
     )
@@ -79,7 +79,7 @@ class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     )
     inlines = [InvoiceItemInline]
     fieldsets = (
-        ("اطلاعات فاکتور", {"fields": ("type", "date", "customer", "course", "orgnization", "description")}),
+        ("اطلاعات فاکتور", {"fields": ("type", "date", "customer", "course", "organization", "description")}),
         ("مبالغ", {"fields": ("items_amount", "discount", "vat", "total_amount", "is_paid")}),
         ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
     )

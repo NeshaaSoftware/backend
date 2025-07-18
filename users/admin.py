@@ -7,7 +7,7 @@ from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
 
-from .models import CrmLog, CrmUser, CrmUserLabel, Orgnization, User
+from .models import CrmLog, CrmUser, CrmUserLabel, Organization, User
 
 
 @admin.register(User)
@@ -49,7 +49,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         ),
         (
             "Location & Organization",
-            {"fields": ("country", "city", "orgnization")},
+            {"fields": ("country", "city", "organization")},
         ),
         (
             "Permissions",
@@ -103,7 +103,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         try:
             user = self.model.objects.get(pk=object_id)
             url = reverse("admin:users_crmuser_change", args=[user._crm_user.id])
-            extra_context["crm_user_button"] = format_html('<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url)
+            extra_context["crm_user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url)
         except Exception:
             extra_context["crm_user_button"] = None
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
@@ -144,8 +144,8 @@ class CrmUserAdminForm(forms.ModelForm):
     national_id = User._meta.get_field("national_id").formfield()
     country = User._meta.get_field("country").formfield()
     city = User._meta.get_field("city").formfield()
-    orgnization = User._meta.get_field("orgnization").formfield(
-        widget=admin.widgets.AutocompleteSelect(User._meta.get_field("orgnization"), admin.site)
+    organization = User._meta.get_field("organization").formfield(
+        widget=admin.widgets.AutocompleteSelect(User._meta.get_field("organization"), admin.site)
     )
     main_user = User._meta.get_field("main_user").formfield(
         widget=admin.widgets.AutocompleteSelect(User._meta.get_field("main_user"), admin.site)
@@ -166,7 +166,7 @@ class CrmUserAdminForm(forms.ModelForm):
         "national_id",
         "country",
         "city",
-        "orgnization",
+        "organization",
         "main_user",
     ]
     new_readonly_fields = []
@@ -236,7 +236,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
         (
             "More info",
-            {"fields": (("referer", "referer_name", "national_id", "country", "city", "orgnization", "main_user"),)},
+            {"fields": (("referer", "referer_name", "national_id", "country", "city", "organization", "main_user"),)},
         ),
         (
             "Support",
@@ -294,8 +294,8 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return obj.user.telegram_id
 
 
-@admin.register(Orgnization)
-class OrgnizationAdmin(admin.ModelAdmin):
+@admin.register(Organization)
+class OrganizationAdmin(admin.ModelAdmin):
     autocomplete_fields = ("contact_user",)
     list_display = ("name", "contact_user")
     search_fields = ("name", "contact_user__username", "contact_user__phone_number")

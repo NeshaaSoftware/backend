@@ -14,17 +14,11 @@ User = get_user_model()
 class CoursePermissionTest(TestCase):
     def setUp(self):
         """Set up test data."""
-        self.superuser = User.objects.create_superuser(
-            username="superuser", email="super@test.com", password="testpass123"
-        )
+        self.superuser = User.objects.create_superuser(username="superuser", email="super@test.com", password="testpass123")
 
-        self.managing_user = User.objects.create_user(
-            username="managing_user", email="managing@test.com", password="testpass123"
-        )
+        self.managing_user = User.objects.create_user(username="managing_user", email="managing@test.com", password="testpass123")
 
-        self.regular_user = User.objects.create_user(
-            username="regular_user", email="regular@test.com", password="testpass123"
-        )
+        self.regular_user = User.objects.create_user(username="regular_user", email="regular@test.com", password="testpass123")
 
         self.course_type = CourseType.objects.create(name="Test Course Type", name_fa="نوع دوره تست", category=1)
 
@@ -77,9 +71,7 @@ class CourseExportPermissionIntegrationTest(TestCase):
 
     def setUp(self):
         """Set up test data."""
-        self.superuser = User.objects.create_superuser(
-            username="superuser", email="super@test.com", password="testpass123"
-        )
+        self.superuser = User.objects.create_superuser(username="superuser", email="super@test.com", password="testpass123")
 
         self.managing_user = User.objects.create_user(
             username="managing_user", email="managing@test.com", password="testpass123", is_staff=True

@@ -228,9 +228,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         urls = super().get_urls()
         custom_urls = [
             path("upload-excel/", self.admin_site.admin_view(self.upload_excel), name="registration-upload-excel"),
-            path(
-                "upload-sazito/", self.admin_site.admin_view(self.upload_sazito_file), name="registration-upload-sazito"
-            ),
+            path("upload-sazito/", self.admin_site.admin_view(self.upload_sazito_file), name="registration-upload-sazito"),
             path(
                 "<int:course_id>/export_registrations/",
                 self.admin_site.admin_view(self.export_registrations),
@@ -245,12 +243,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             registration = self.model.objects.get(pk=object_id)
             url_user = reverse("admin:users_user_change", args=[registration.user.id])
             url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
-            extra_context["user_button"] = format_html(
-                '<a class="button" href="{}";display:inline-block;">Go to User</a>', url_user
-            )
-            extra_context["crm_user_button"] = format_html(
-                '<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url_crm
-            )
+            extra_context["user_button"] = format_html('<a class="button" href="{}";display:inline-block;">Go to User</a>', url_user)
+            extra_context["crm_user_button"] = format_html('<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url_crm)
         except Exception:
             extra_context["crm_user_button"] = None
             extra_context["user_button"] = None
@@ -335,10 +329,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                 return None
             return text
 
-        users_dic = {
-            user[1]: user
-            for user in User.objects.all().values_list("id", "username", "first_name", "last_name", "phone_number")
-        }
+        users_dic = {user[1]: user for user in User.objects.all().values_list("id", "username", "first_name", "last_name", "phone_number")}
         users_dup_check = {f"{u[2]}{u[3]}".replace(" ", ""): u for u in users_dic.values() if u[3] not in [None, ""]}
 
         registration_dic = {r[0]: r[1] for r in Registration.objects.filter(course=course).values_list("user_id", "id")}
@@ -598,9 +589,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         try:
             course = Course.objects.get(id=course_id)
             registrations = (
-                Registration.objects.filter(course=course)
-                .select_related("user", "supporting_user")
-                .order_by("-registration_date")
+                Registration.objects.filter(course=course).select_related("user", "supporting_user").order_by("-registration_date")
             )
             data = []
             for reg in registrations:
@@ -611,21 +600,15 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                         "phone": getattr(reg.user, "phone_number", ""),
                         "email": reg.user.email,
                         "status": reg.status_display,
-                        "registration date": reg.registration_date.strftime("%Y/%m/%d %H:%M")
-                        if reg.registration_date
-                        else "",
+                        "registration date": reg.registration_date.strftime("%Y/%m/%d %H:%M") if reg.registration_date else "",
                         "قیمت اولیه": reg.initial_price,
                         "تخفیف": reg.discount,
                         "tax": reg.vat,
                         "شهریه": reg.tuition,
                         "وضعیت پرداخت": dict(PAYMENT_STATUS_CHOICES).get(reg.payment_status, ""),
                         "نوع پرداخت": dict(PAYMENT_TYPE_CHOICES).get(reg.payment_type, ""),
-                        "تاریخ پرداخت بعدی": reg.next_payment_date.strftime("%Y/%m/%d")
-                        if reg.next_payment_date
-                        else "",
-                        "پشتیبان": f"{reg.supporting_user.first_name} {reg.supporting_user.last_name}"
-                        if reg.supporting_user
-                        else "",
+                        "تاریخ پرداخت بعدی": reg.next_payment_date.strftime("%Y/%m/%d") if reg.next_payment_date else "",
+                        "پشتیبان": f"{reg.supporting_user.first_name} {reg.supporting_user.last_name}" if reg.supporting_user else "",
                         "توضیحات": reg.description or "",
                         "توضیحات پرداخت": reg.payment_description or "",
                     }
@@ -660,9 +643,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             if form.is_valid():
                 csv_file = request.FILES["csv_file"]
                 try:
-                    df = pd.read_csv(
-                        csv_file, dtype={"first name": str, "last name": str, "Payment Reference Code": str}
-                    )
+                    df = pd.read_csv(csv_file, dtype={"first name": str, "last name": str, "Payment Reference Code": str})
                 except Exception as e:
                     self.message_user(request, f"Error reading csv file: {e}", level="error")
                     return redirect(request.path)
@@ -737,12 +718,11 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "telegram_id": details.get("آی\u200cدی تلگرام جهت عضو شدن در گروه دوره", ""),
                                 "age": details.get("سن", None),
                                 "referer_name": details.get("معرف", ""),
-                                "registration_date": datetime.strptime(
-                                    str(row["Created at (gregorian)"]), "%m/%d/%Y %H:%M"
-                                ),
+                                "registration_date": datetime.strptime(str(row["Created at (gregorian)"]), "%m/%d/%Y %H:%M"),
                                 "tracking_code": row["Payment Reference Code"],
                                 "financial_account": FinancialAccount.objects.get(name="پی‌پینگ"),
                                 "entry_user": request.user,
+                                "status": "حاضر در دوره - عدم سررسید"
                             }
                         )
 

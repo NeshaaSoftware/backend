@@ -119,13 +119,10 @@ def merge_user_data(source_user, target_user) -> None:
         target_user.age = source_user.age
 
     if source_user.more_phone_numbers:
-        target_user.more_phone_numbers = (
-            target_user.more_phone_numbers + "\n" + source_user.more_phone_numbers
-        ).strip()
+        target_user.more_phone_numbers = (target_user.more_phone_numbers + "\n" + source_user.more_phone_numbers).strip()
 
     source_user.description = (
-        f"{source_user.first_name} {source_user.last_name} "
-        f"has been merged into {target_user.id}\n{source_user.username}"
+        f"{source_user.first_name} {source_user.last_name} has been merged into {target_user.id}\n{source_user.username}"
     )
     source_user.first_name = "merged_user"
     source_user.last_name = f"{source_user.id}"

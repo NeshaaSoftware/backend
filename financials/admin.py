@@ -1,3 +1,4 @@
+from dal import autocomplete
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin, messages
@@ -306,9 +307,26 @@ class CourseTransactionInline(admin.TabularInline):
 
 
 class CourseTransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
+    destination_account = forms.ModelChoiceField(
+        queryset=FinancialAccount.objects.all(),
+        widget=autocomplete.ModelSelect2(url="financialaccount-autocomplete"),
+        label="Destination Account",
+        required=False,
+        help_text="Destination Account",
+    )
+    make_transfer = forms.BooleanField(required=False, initial=False, help_text="Make Transfer")
+
     class Meta:
         model = CourseTransaction
         fields = "__all__"  # noqa
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        destination_account = self.cleaned_data.get("destination_account")
+        make_transfer = self.cleaned_data.get("make_transfer", False)
+        if destination_account and make_transfer:
+            CourseTransaction.objects.create(transaction_category=instance.transaction_category, transaction_type=3 - instance.transaction_type, financial_account=destination_account, amount=instance.amount, course=instance.course, entry_user=instance.entry_user, transaction_date=instance.transaction_date, tracking_code=instance.tracking_code, description=instance.description)
+        return instance
 
 
 @admin.register(CourseTransaction)
@@ -385,7 +403,9 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
         ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
         (None, {"fields": ("_created_at", "_updated_at")}),
+        ("transfer", {"fields": ("destination_account", "make_transfer",)}),
     )
+    change_list_template = "admin/financials/coursetransaction/change_list.html"
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "financial_account":
@@ -421,16 +441,18 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             qs = qs.filter(course__managing_users=request.user)
         return qs
 
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path(
-                "<int:object_id>/make-transaction/",
-                self.admin_site.admin_view(self.make_course_transaction),
-                name="make_course_transaction",
-            ),
-        ]
-        return custom_urls + urls
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            course_transaction = self.get_object(request, object_id)
+            if course_transaction and not course_transaction.transaction:
+                url = reverse("admin:make_course_transaction", args=[object_id])
+                extra_context["make_transaction_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block;">Make Transaction</a>', url
+                )
+        except Exception:
+            messages.error(request, "Error retrieving CourseTransaction.")
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
     def make_course_transaction(self, request, object_id):
         try:
@@ -456,15 +478,13 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:financials_coursetransaction_change", args=[object_id]))
 
-    def change_view(self, request, object_id, form_url="", extra_context=None):
-        extra_context = extra_context or {}
-        try:
-            course_transaction = self.get_object(request, object_id)
-            if course_transaction and not course_transaction.transaction:
-                url = reverse("admin:make_course_transaction", args=[object_id])
-                extra_context["make_transaction_button"] = format_html(
-                    '<a class="button" href="{}" style="display:inline-block;">Make Transaction</a>', url
-                )
-        except Exception:
-            messages.error(request, "Error retrieving CourseTransaction.")
-        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<int:object_id>/make-transaction/",
+                self.admin_site.admin_view(self.make_course_transaction),
+                name="make_course_transaction",
+            ),
+        ]
+        return custom_urls + urls

@@ -92,9 +92,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         if not request.user.is_superuser:
             fieldsets = [fs for fs in fieldsets if fs[0] != "Permissions"]
             fieldsets = [
-                (title, {**opts, "fields": tuple(f for f in opts["fields"] if f != "password")})
-                if opts.get("fields")
-                else (title, opts)
+                (title, {**opts, "fields": tuple(f for f in opts["fields"] if f != "password")}) if opts.get("fields") else (title, opts)
                 for title, opts in fieldsets
             ]
         return fieldsets
@@ -104,9 +102,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         try:
             user = self.model.objects.get(pk=object_id)
             url = reverse("admin:users_crmuser_change", args=[user._crm_user.id])
-            extra_context["crm_user_button"] = format_html(
-                '<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url
-            )
+            extra_context["crm_user_button"] = format_html('<a class="button" href="{}";display:inline-block;">Go to CRM User</a>', url)
         except Exception:
             extra_context["crm_user_button"] = None
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
@@ -277,9 +273,7 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
     @admin.display(description="Registered Courses")
     def registered_courses_list(self, obj):
-        registrations = obj.user.registrations.select_related("course__course_type").filter(
-            status__in=[3, 4, 5, 7, 8, 9]
-        )
+        registrations = obj.user.registrations.select_related("course__course_type").filter(status__in=[3, 4, 5, 7, 8, 9])
         return (
             ", ".join(
                 [

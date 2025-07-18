@@ -128,9 +128,7 @@ class DetailedLogAdminMixin:
             return [self.log_deletion(request, obj, str(obj)) for obj in queryset]
 
         return [
-            self._create_detailed_log(
-                request, obj, DELETION, "", old_values=self._get_field_values(obj), changed_values={}
-            )
+            self._create_detailed_log(request, obj, DELETION, "", old_values=self._get_field_values(obj), changed_values={})
             for obj in queryset
         ]
 

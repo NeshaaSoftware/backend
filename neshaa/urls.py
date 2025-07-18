@@ -14,6 +14,7 @@ def block_other_urls(request, *args, **kwargs):
 
 urlpatterns = [
     path("courses/", include("courses.urls")),
+    path("financials/", include("financials.urls")),
     path("ndash/", admin.site.urls),
     path("readiness/", readiness_probe, name="readiness-probe"),
     path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "favicon.ico", permanent=True)),

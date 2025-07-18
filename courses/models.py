@@ -119,9 +119,7 @@ class Registration(TimeStampedModel):
     payment_status = models.IntegerField(choices=PAYMENT_STATUS_CHOICES, default=3)
     payment_type = models.IntegerField(choices=PAYMENT_TYPE_CHOICES, default=1)
     next_payment_date = jmodels.jDateTimeField(blank=True, null=True)
-    supporting_user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, related_name="supported_registrations", blank=True, null=True
-    )
+    supporting_user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name="supported_registrations", blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     payment_description = models.TextField(blank=True, null=True)
 

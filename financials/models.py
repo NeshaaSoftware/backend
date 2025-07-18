@@ -1,7 +1,7 @@
+import jdatetime
 from django.core.validators import MinValueValidator
 from django.db import models
 from django_jalali.db import models as jmodels
-import jdatetime
 
 from commons.models import TimeStampedModel
 from courses.models import Course
@@ -108,15 +108,26 @@ class InvoiceItem(TimeStampedModel):
 
 
 TRANSACTION_TYPE_CHOICES = [(1, "دریافت"), (2, "برداشت")]
+TRANSACTION_CATEGORY_COURSE_REGISTRATION = 1
+TRANSACTION_CATEGORY_COURSE_COST = 2
+TRANSACTION_CATEGORY_COURSE_INSTULMENT = 3
+TRANSACTION_CATEGORY_CREDIT = 4
+TRANSACTION_CATEGORY_OPERATION_COST = 5
+TRANSACTION_CATEGORY_COMPENSATION = 6
+TRANSACTION_CATEGORY_STATIONERY = 7
+TRANSACTION_CATEGORY_INVESTMENT = 8
+TRANSACTION_CATEGORY_PETTY_CASH = 9
+
 TRANSACTION_CATEGORY_CHOICES = [
-    (1, "ثبت‌نام دوره"),
-    (2, "هزینه دوره"),
-    (3, "قسط دوره"),
-    (4, "شارژ اعتبار"),
-    (5, "هزینه عملیاتی"),
-    (6, "جبران خدمات"),
-    (7, "تجهیزات"),
-    (8, "سرمایه‌گذاری"),
+    (TRANSACTION_CATEGORY_COURSE_REGISTRATION, "ثبت‌نام دوره"),
+    (TRANSACTION_CATEGORY_COURSE_COST, "هزینه دوره"),
+    (TRANSACTION_CATEGORY_COURSE_INSTULMENT, "قسط دوره"),
+    (TRANSACTION_CATEGORY_CREDIT, "شارژ اعتبار"),
+    (TRANSACTION_CATEGORY_OPERATION_COST, "هزینه عملیاتی"),
+    (TRANSACTION_CATEGORY_COMPENSATION, "جبران خدمات"),
+    (TRANSACTION_CATEGORY_STATIONERY, "تجهیزات"),
+    (TRANSACTION_CATEGORY_INVESTMENT, "سرمایه‌گذاری"),
+    (TRANSACTION_CATEGORY_PETTY_CASH, "تنخواه"),
 ]
 
 
@@ -131,13 +142,9 @@ class Transaction(TimeStampedModel):
     fee = models.PositiveIntegerField()
     net_amount = models.PositiveIntegerField()
     name = models.CharField(max_length=100, blank=True, default="")
-    user_account = models.ForeignKey(
-        "users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="transactions"
-    )
+    user_account = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="transactions")
     tracking_code = models.CharField(max_length=100, blank=True, default="")
-    entry_user = models.ForeignKey(
-        "users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="entry_transactions"
-    )
+    entry_user = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="entry_transactions")
     description = models.TextField(blank=True, default="")
 
     def save(self, *args, **kwargs) -> None:
@@ -148,7 +155,9 @@ class Transaction(TimeStampedModel):
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.id}-{self.amount}-{self.account.name}-{self.get_transaction_type_display()}-{self.get_transaction_category_display()}"
+        return (
+            f"{self.id}-{self.amount}-{self.account.name}-{self.get_transaction_type_display()}-{self.get_transaction_category_display()}"
+        )
 
 
 COST_CATEGORY_HOTEL = 1
@@ -162,6 +171,7 @@ COST_CATEGORY_CATERING = 8
 COST_CATEGORY_CHARGING_CREDIT = 9
 INCOME_CATEGORY_REGISTRATION = 10
 INCOME_CATEGORY_INSTULLMENT = 11
+COURSE_TRANSACTION_CATEGORY_PETTY_CASH = 12
 
 COURSE_TRANSACTION_CATEGORY_CHOICES = [
     (COST_CATEGORY_HOTEL, "اقامت هتل"),
@@ -175,6 +185,7 @@ COURSE_TRANSACTION_CATEGORY_CHOICES = [
     (COST_CATEGORY_CHARGING_CREDIT, "شارژ اعتبار"),
     (INCOME_CATEGORY_REGISTRATION, "ثبت‌نام"),
     (INCOME_CATEGORY_INSTULLMENT, "قسط"),
+    (COURSE_TRANSACTION_CATEGORY_PETTY_CASH, "تنخواه"),
 ]
 
 FIXED_COST_CATEGORY = [1, 2, 3, 4, 5, 6]
@@ -185,28 +196,18 @@ class CourseTransaction(TimeStampedModel):
     title = models.CharField(max_length=200, blank=True, default="")
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
     transaction_category = models.IntegerField(choices=COURSE_TRANSACTION_CATEGORY_CHOICES, default=10)
-    financial_account = models.ForeignKey(
-        FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions"
-    )
-    transaction = models.ForeignKey(
-        "Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions"
-    )
+    financial_account = models.ForeignKey(FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions")
+    transaction = models.ForeignKey("Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="transactions")
-    registration = models.ForeignKey(
-        "courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True
-    )
+    registration = models.ForeignKey("courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True)
     amount = models.PositiveIntegerField(help_text="تومان")
     fee = models.PositiveIntegerField(default=0, help_text="تومان")
     net_amount = models.PositiveIntegerField(help_text="تومان")
     customer_name = models.CharField(max_length=100, blank=True, default="")
-    user_account = models.ForeignKey(
-        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions"
-    )
+    user_account = models.ForeignKey("users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions")
     transaction_date = jmodels.jDateTimeField(default=jdatetime.datetime.now, db_index=True, help_text="تاریخ تراکنش")
     tracking_code = models.CharField(max_length=100, blank=True, default="")
-    entry_user = models.ForeignKey(
-        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry"
-    )
+    entry_user = models.ForeignKey("users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry")
     description = models.TextField(blank=True, default="")
 
     def save(self, *args, **kwargs) -> None:
@@ -229,11 +230,12 @@ class CourseTransaction(TimeStampedModel):
             4: 2,
             5: 2,
             6: 2,
-            7: 5,
-            8: 5,
+            7: 2,
+            8: 2,
             9: 4,
             10: 1,
             11: 3,
+            12: 9,
         }
 
         transaction_category = transaction_category_mapping.get(self.transaction_category, 1)
@@ -242,7 +244,7 @@ class CourseTransaction(TimeStampedModel):
             course=self.course,
             transaction_type=self.transaction_type,
             transaction_category=transaction_category,
-            date=self.date,
+            transaction_date=self.transaction_date,
             amount=self.amount,
             fee=self.fee,
             user_account=self.user_account,

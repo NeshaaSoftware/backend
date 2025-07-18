@@ -65,9 +65,7 @@ class User(TimeStampedModel, AbstractUser):
     country = models.CharField(max_length=50, blank=True, default="")
     city = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, null=True)
-    orgnization = models.ForeignKey(
-        Orgnization, on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users"
-    )
+    orgnization = models.ForeignKey(Orgnization, on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users")
     main_user = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="other_users")
 
     USERNAME_FIELD = "username"
@@ -143,9 +141,7 @@ class CrmUserLabel(TimeStampedModel):
 
 class CrmUser(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="crm_user")
-    supporting_user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="supported_users"
-    )
+    supporting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="supported_users")
     last_follow_up = jmodels.jDateTimeField(blank=True, null=True, db_index=True)
     next_follow_up = jmodels.jDateTimeField(blank=True, null=True, db_index=True)
     joined_main_group = models.BooleanField(default=False, db_index=True)

@@ -17,7 +17,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
     search_fields = ["username", "first_name", "last_name", "phone_number", "telegram_id"]
     readonly_fields = ["_created_at", "_updated_at", "date_joined", "last_login"]
     ordering = ["-id"]
-    autocomplete_fields = ["referer"]
+    autocomplete_fields = ["referer", "main_user"]
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         (
@@ -35,6 +35,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
                     "english_first_name",
                     "english_last_name",
                     "description",
+                    "main_user",
                 )
             },
         ),

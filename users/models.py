@@ -29,6 +29,24 @@ CRM_USER_STATUS_CHOICES = [
 CRM_LOG_ACTION_CHOICES = [(1, "تماس موفق"), (2, "تماس ناموفق"), (3, "پیامک ارسال شد"), (4, "تلگرام ارسال شد")]
 
 
+class Orgnization(TimeStampedModel):
+    name = models.CharField(max_length=100, unique=True, verbose_name="نام سازمان")
+    description = models.TextField(blank=True, null=True, verbose_name="توضیحات")
+    contact_user = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="contacted_organizations",
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class User(TimeStampedModel, AbstractUser):
     phone_number = PhoneNumberField(null=True, blank=True, unique=True)
     more_phone_numbers = models.TextField(blank=True, default="")
@@ -47,24 +65,20 @@ class User(TimeStampedModel, AbstractUser):
     city = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, null=True)
     orgnization = models.ForeignKey(
-        "Orgnization", on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users"
+        Orgnization, on_delete=models.SET_NULL, null=True, blank=True, related_name="orgnization_users"
     )
     main_user = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="other_users")
 
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = []
 
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
-
     class Meta:
-        verbose_name = "User"
-        verbose_name_plural = "Users"
         ordering = ["-_created_at"]
         indexes = [
             models.Index(fields=["first_name"]),
             models.Index(fields=["last_name"]),
+            models.Index(fields=["phone_number"]),
+            models.Index(fields=["national_id"]),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -77,14 +91,16 @@ class User(TimeStampedModel, AbstractUser):
     def __str__(self):
         return f"{self.full_name} - {self.phone_number}"
 
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
-        if is_new:
-            from users.models import CrmUser
 
-            if not hasattr(self, "crm_user"):
-                CrmUser.objects.create(user=self)
+        if is_new and not hasattr(self, "crm_user"):
+            CrmUser.objects.create(user=self)
 
     @property
     def _crm_user(self):
@@ -93,11 +109,16 @@ class User(TimeStampedModel, AbstractUser):
             crm_user = CrmUser.objects.create(user=self)
         return crm_user
 
+
 class CrmUserLabel(TimeStampedModel):
     name = models.CharField(max_length=50, unique=True)
 
+    class Meta:
+        ordering = ["name"]
+
     def __str__(self):
         return self.name
+
 
 class CrmUser(TimeStampedModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="crm_user")
@@ -111,8 +132,11 @@ class CrmUser(TimeStampedModel):
     crm_label = models.ManyToManyField(CrmUserLabel, blank=True, related_name="crm_users")
     status = models.IntegerField(choices=CRM_USER_STATUS_CHOICES, default=3, db_index=True)
 
+    class Meta:
+        ordering = ["-_created_at"]
+
     def __str__(self):
-        return f"{self.user.full_name} - {self.id}"
+        return f"{self.user.full_name} - {self.pk}"
 
 
 class CrmLog(TimeStampedModel):
@@ -122,16 +146,8 @@ class CrmLog(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="crm_logs")
     date = jmodels.jDateTimeField(blank=True, db_index=True)
 
-    def __str__(self):
-        return f"{self.id} - {self.crm.user.full_name} - {self.get_action_display()} - {self.date!s}"
-
-
-class Orgnization(TimeStampedModel):
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True, null=True)
-    contact_user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="contacted_organizations"
-    )
+    class Meta:
+        ordering = ["-date"]
 
     def __str__(self):
-        return self.name
+        return f"{self.pk} - {self.crm.user.full_name} - {self.get_action_display()} - {self.date}"

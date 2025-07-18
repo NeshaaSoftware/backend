@@ -1,12 +1,10 @@
-from typing import ClassVar
-
 from django.db import models
 from django_jalali.db import models as jmodels
 
 from commons.models import TimeStampedModel
 from users.models import User
 
-STATUS_CHOICES: ClassVar[list[tuple[int, str]]] = [
+STATUS_CHOICES = [
     (1, "در انتظار ثبت‌نام"),
     (2, "انصراف پیش از دوره"),
     (3, "انتخاب نماندن"),
@@ -17,12 +15,14 @@ STATUS_CHOICES: ClassVar[list[tuple[int, str]]] = [
     (8, "مهمان"),
     (9, "تکمیل دوره"),
 ]
-Payment_STATUS_CHOICES: ClassVar[list[tuple[int, str]]] = [
+
+PAYMENT_STATUS_CHOICES = [
     (1, "عدم سررسید"),
     (2, "در انتظار پرداخت"),
     (3, "تسویه"),
 ]
-PAYMENT_TYPE_CHOICES: ClassVar[list[tuple[int, str]]] = [
+
+PAYMENT_TYPE_CHOICES = [
     (1, "نقدی"),
     (2, "اقساطی"),
     (3, "رایگان"),
@@ -115,7 +115,7 @@ class Registration(TimeStampedModel):
         null=True,
         blank=True,
     )
-    payment_status = models.IntegerField(choices=Payment_STATUS_CHOICES, default=3)
+    payment_status = models.IntegerField(choices=PAYMENT_STATUS_CHOICES, default=3)
     payment_type = models.IntegerField(choices=PAYMENT_TYPE_CHOICES, default=1)
     next_payment_date = jmodels.jDateTimeField(blank=True, null=True)
     supporting_user = models.ForeignKey(

@@ -1,6 +1,8 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
 
@@ -14,8 +16,8 @@ class FinancialAccountAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     readonly_fields = ("_created_at", "_updated_at")
     filter_horizontal = ("course",)
     fieldsets = (
-        ("اطلاعات حساب", {"fields": ("name", "description", "course")}),
-        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Account Information", {"fields": ("name", "description", "course")}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
     )
 
 
@@ -25,8 +27,8 @@ class CommodityAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     search_fields = ("name", "description")
     readonly_fields = ("_created_at", "_updated_at")
     fieldsets = (
-        ("اطلاعات کالا", {"fields": ("name", "description")}),
-        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Commodity Information", {"fields": ("name", "description")}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
     )
 
 
@@ -36,8 +38,8 @@ class CustomerAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     search_fields = ("name", "tax_id", "national_id", "contact", "address")
     readonly_fields = ("_created_at", "_updated_at")
     fieldsets = (
-        ("اطلاعات مشتری", {"fields": ("name", "customer_type", "tax_id", "national_id", "contact", "address")}),
-        ("زمان‌بندی", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+        ("Customer Information", {"fields": ("name", "customer_type", "tax_id", "national_id", "contact", "address")}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
     )
 
 
@@ -221,6 +223,17 @@ class CourseTransactionInlineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.parent_registration = parent_registration
 
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            url = reverse("admin:financials_coursetransaction_change", args=[])
+            extra_context["make_transaction_button"] = format_html(
+                '<a class="button" href="{}";display:inline-block;">Make Transaction</a>', url
+            )
+        except Exception:
+            extra_context["make_transaction_button"] = None
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         if self.parent_registration is not None:
@@ -237,7 +250,10 @@ class CourseTransactionInline(admin.TabularInline):
     form = CourseTransactionInlineForm
     extra = 0
     readonly_fields = ("net_amount", "entry_user")
-    exclude = ("course", "user_account",)
+    exclude = (
+        "course",
+        "user_account",
+    )
     show_change_link = True
     verbose_name = "تراکنش مالی ثبت‌نام"
     verbose_name_plural = "تراکنش‌های مالی ثبت‌نام"

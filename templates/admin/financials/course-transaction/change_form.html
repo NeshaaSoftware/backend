@@ -1,0 +1,10 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools-items %}
+    {% if make_transaction_button %}
+        <li>
+        {{ make_transaction_button|safe }}
+        </li>
+    {% endif %}    
+    {{ block.super }}
+{% endblock %}

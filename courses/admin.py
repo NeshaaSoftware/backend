@@ -1,13 +1,13 @@
+import pandas as pd
 from dal import autocomplete
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin, messages
 from django.db.models import Q
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
-import pandas as pd
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 from financials.admin import CourseTransactionInline
@@ -88,10 +88,7 @@ class CourseSessionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             "Session Information",
             {"fields": ("session_name", "course", "start_date", "end_date", "location", "description")},
         ),
-        (
-            "Timestamps",
-            {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)},
-        ),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
     )
 
     def get_queryset(self, request):
@@ -215,7 +212,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                     return redirect(request.path)
                 if not request.POST.get("confirm_preview"):
                     preview_data = df.loc[:, ["fix phone", "نام", "نام خانوادگی", "مبلغ نهایی"]]
-                    df = df.dropna(subset=['نام', 'نام خانوادگی', "fix phone"])
+                    df = df.dropna(subset=["نام", "نام خانوادگی", "fix phone"])
                     preview_html = preview_data.to_html(index=False, classes="table table-bordered table-sm")
                     return render(
                         request,
@@ -231,6 +228,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 currency_to_toman_multiplier = form.cleaned_data.get("currency_to_toman_multiplier", 1000000)
                 try:
                     import hashlib
+
                     from tqdm import tqdm
 
                     from commons.utils import get_national_id, get_status_from_text, normalize_phone
@@ -239,7 +237,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
                     df = pd.read_excel(excel_file, sheet_name=sheet_name, dtype={"fix phone": str, "سن": str})
                     df = df.where(pd.notnull(df), None)
-                    df = df.dropna(subset=['نام', 'نام خانوادگی', "fix phone"])
+                    df = df.dropna(subset=["نام", "نام خانوادگی", "fix phone"])
                     good_phone = []
                     bad_phone = []
                     for phone in df["fix phone"]:

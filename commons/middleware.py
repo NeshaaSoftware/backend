@@ -9,11 +9,13 @@ class AddTrailingSlashMiddleware:
 
     def __call__(self, request):
         path = request.path
-        if (
+        should_redirect = (
             path != "/"
             and not path.endswith("/")
             and not re.match(r"^.*\?.*$", path)
             and not re.match(r"^\/(static\/.*|media\/.*|favicon\.ico)", path)
-        ):
+        )
+
+        if should_redirect:
             return redirect(path + "/", permanent=True)
         return self.get_response(request)

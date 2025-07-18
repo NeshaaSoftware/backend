@@ -46,36 +46,41 @@ class DetailedLogAdminMixin:
             change_message=change_message or "",
         )
 
-    def save_model(self, request, obj, form, change):
-        if change:
-            old_obj = obj.__class__.objects.get(pk=obj.pk)
-            self.custom_old_values = {f.name: getattr(old_obj, f.name) for f in obj._meta.fields}
-            self.form_changed_values = {f: form.cleaned_data[f] for f in form.changed_data}
-        else:
-            self.custom_old_values = None
-            self.form_changed_values = []
-        super().save_model(request, obj, form, change)
+    def _get_field_values(self, obj):
+        return {field.name: getattr(obj, field.name) for field in obj._meta.fields}
 
-    def log_addition(self, request, object, message):
-        from commons.models import DetailedLog
-
-        self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
-
+    def _create_detailed_log(self, request, obj, action_flag, message, old_values=None, changed_values=None):
         return DetailedLog.objects.create(
             user_id=request.user.pk,
-            content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
-            object_id=object.pk,
-            object_repr=str(object)[:200],
-            action_flag=ADDITION,
+            content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
+            object_id=obj.pk,
+            object_repr=str(obj)[:200],
+            action_flag=action_flag,
             change_message=message or "",
-            old_values={},
-            changed_values=self.custom_new_values,
+            old_values=old_values or {},
+            changed_values=changed_values or {},
         )
 
-    def log_change(self, request, object, message):
-        from django.contrib.admin.models import CHANGE
+    def save_model(self, request, obj, form, change):
+        if change:
+            try:
+                old_obj = obj.__class__.objects.get(pk=obj.pk)
+                self.custom_old_values = self._get_field_values(old_obj)
+                self.form_changed_values = {f: form.cleaned_data[f] for f in form.changed_data}
+            except obj.__class__.DoesNotExist:
+                self.custom_old_values = {}
+                self.form_changed_values = {}
+        else:
+            self.custom_old_values = {}
+            self.form_changed_values = self._get_field_values(obj)
+        super().save_model(request, obj, form, change)
 
-        from commons.models import DetailedLog
+    def log_addition(self, request, obj, message):
+        new_values = self._get_field_values(obj)
+        return self._create_detailed_log(request, obj, ADDITION, message, old_values={}, changed_values=new_values)
+
+    def log_change(self, request, obj, message):
+        from django.contrib.admin.models import CHANGE
 
         # self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
         # self.custom_changed_values = []
@@ -84,20 +89,14 @@ class DetailedLogAdminMixin:
         #         self.custom_changed_values.append({k: self.custom_new_values[k]})
         # self.custom_changed_values.append({"form": self.form_changed_values})
         # self.custom_changed_values = [{k: v} for k, v in .items()]
-        return DetailedLog.objects.create(
-            user_id=request.user.pk,
-            content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
-            object_id=object.pk,
-            object_repr=str(object)[:200],
-            action_flag=CHANGE,
-            change_message=message or "",
-            old_values=self.custom_old_values,
-            changed_values=self.form_changed_values,
-        )
 
-    def log_deletion(self, request, object, object_repr):
+        old_values = getattr(self, "custom_old_values", {})
+        changed_values = getattr(self, "form_changed_values", {})
+        return self._create_detailed_log(request, obj, CHANGE, message, old_values, changed_values)
+
+    def log_deletion(self, request, obj, object_repr):
         import warnings
-
+        from django.contrib.admin.models import DELETION
         from django.utils.deprecation import RemovedInDjango60Warning
 
         """
@@ -111,17 +110,9 @@ class DetailedLogAdminMixin:
             RemovedInDjango60Warning,
             stacklevel=2,
         )
-        from django.contrib.admin.models import DELETION
 
-        return DetailedLog.objects.create(
-            user_id=request.user.pk,
-            content_type_id=ContentType.objects.get_for_model(object, for_concrete_model=False).id,
-            object_id=object.pk,
-            object_repr=str(object)[:200],
-            action_flag=DELETION,
-            old_values={},
-            changed_values={f.name: getattr(object, f.name) for f in object._meta.fields},
-        )
+        old_values = self._get_field_values(obj)
+        return self._create_detailed_log(request, obj, DELETION, "", old_values, {})
 
     def log_deletions(self, request, queryset):
         import warnings
@@ -147,14 +138,8 @@ class DetailedLogAdminMixin:
             return [self.log_deletion(request, obj, str(obj)) for obj in queryset]
 
         return [
-            DetailedLog.objects.create(
-                user_id=request.user.pk,
-                content_type_id=ContentType.objects.get_for_model(obj, for_concrete_model=False).id,
-                object_id=obj.pk,
-                object_repr=str(obj)[:200],
-                action_flag=DELETION,
-                old_values={},
-                changed_values={f.name: getattr(obj, f.name) for f in obj._meta.fields},
+            self._create_detailed_log(
+                request, obj, DELETION, "", old_values=self._get_field_values(obj), changed_values={}
             )
             for obj in queryset
         ]
@@ -166,7 +151,7 @@ class DetailedLogAdmin(DALFModelAdmin):
     list_filter = ("action_time", ("user", DALFRelatedFieldAjax), "action_flag")
     search_fields = ("object_repr", "change_message")
     autocomplete_fields = ("user",)
-
+    date_hierarchy = "action_time"
     readonly_fields = [
         "action_time",
         "user",
@@ -175,6 +160,8 @@ class DetailedLogAdmin(DALFModelAdmin):
         "object_repr",
         "action_flag",
         "change_message",
+        "old_values",
+        "changed_values",
     ]
 
     def has_add_permission(self, request):

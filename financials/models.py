@@ -12,7 +12,7 @@ class FinancialAccount(TimeStampedModel):
     description = models.TextField(blank=True, default="")
 
     def __str__(self):
-        return f"{self.name} ({self.course.name if self.course else 'General'})"
+        return self.name
 
 
 class Commodity(TimeStampedModel):
@@ -64,7 +64,7 @@ class Invoice(TimeStampedModel):
     def save(self, *args, **kwargs):
         self.update_items_amount()
         self.update_total_amount()
-        super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
     def update_items_amount(self):
         total = self.items.aggregate(total=models.Sum("total_price"))["total"] or 0
@@ -93,15 +93,17 @@ class InvoiceItem(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.total_price = max((self.unit_price * self.quantity) - self.discount + self.vat, 0)
-        super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
         if self.invoice:
             self.invoice.save()
+        return result
 
     def delete(self, *args, **kwargs):
         invoice = self.invoice
-        super().delete(*args, **kwargs)
+        result = super().delete(*args, **kwargs)
         if invoice:
             invoice.save()
+        return result
 
 
 TRANSACTION_TYPE_CHOICES = [(1, "دریافت"), (2, "برداشت")]
@@ -182,7 +184,9 @@ class CourseTransaction(TimeStampedModel):
     financial_account = models.ForeignKey(
         FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions"
     )
-    transaction = models.ForeignKey("Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions")
+    transaction = models.ForeignKey(
+        "Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions"
+    )
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="transactions")
     registration = models.ForeignKey(
         "courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True

@@ -12,32 +12,9 @@ from .models import CrmLog, CrmUser, CrmUserLabel, Orgnization, User
 
 @admin.register(User)
 class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
-    list_display = [
-        "id",
-        "phone_number",
-        "username",
-        "email",
-        "full_name",
-        "gender",
-        "age",
-        "is_active",
-        "_created_at",
-    ]
-    list_filter = [
-        "gender",
-        "education",
-        "is_active",
-        "is_staff",
-        "is_superuser",
-        "_created_at",
-    ]
-    search_fields = [
-        "username",
-        "first_name",
-        "last_name",
-        "phone_number",
-        "telegram_id",
-    ]
+    list_display = ["id", "phone_number", "username", "email", "full_name", "gender", "age", "is_active", "_created_at"]
+    list_filter = ["gender", "education", "is_active", "is_staff", "is_superuser", "_created_at"]
+    search_fields = ["username", "first_name", "last_name", "phone_number", "telegram_id"]
     readonly_fields = ["_created_at", "_updated_at", "date_joined", "last_login"]
     ordering = ["-id"]
     autocomplete_fields = ["referer"]
@@ -163,13 +140,19 @@ class CrmUserAdminForm(forms.ModelForm):
     education = User._meta.get_field("education").formfield()
     profession = User._meta.get_field("profession").formfield()
     more_phone_numbers = User._meta.get_field("more_phone_numbers").formfield()
-    referer = User._meta.get_field("referer").formfield(widget=admin.widgets.AutocompleteSelect(User._meta.get_field("referer"), admin.site))
+    referer = User._meta.get_field("referer").formfield(
+        widget=admin.widgets.AutocompleteSelect(User._meta.get_field("referer"), admin.site)
+    )
     referer_name = User._meta.get_field("referer_name").formfield()
     national_id = User._meta.get_field("national_id").formfield()
     country = User._meta.get_field("country").formfield()
     city = User._meta.get_field("city").formfield()
-    orgnization = User._meta.get_field("orgnization").formfield(widget=admin.widgets.AutocompleteSelect(User._meta.get_field("orgnization"), admin.site))
-    main_user = User._meta.get_field("main_user").formfield(widget=admin.widgets.AutocompleteSelect(User._meta.get_field("main_user"), admin.site))
+    orgnization = User._meta.get_field("orgnization").formfield(
+        widget=admin.widgets.AutocompleteSelect(User._meta.get_field("orgnization"), admin.site)
+    )
+    main_user = User._meta.get_field("main_user").formfield(
+        widget=admin.widgets.AutocompleteSelect(User._meta.get_field("main_user"), admin.site)
+    )
 
     new_fields = [
         "first_name",
@@ -190,6 +173,7 @@ class CrmUserAdminForm(forms.ModelForm):
         "main_user",
     ]
     new_readonly_fields = []
+
     class Meta:
         model = CrmUser
         fields = "__all__"  # noqa
@@ -201,8 +185,7 @@ class CrmUserAdminForm(forms.ModelForm):
                 self.fields[new_field].initial = getattr(self.instance.user, new_field, None)
             for read_only_field in self.new_readonly_fields:
                 self.fields[read_only_field].initial = getattr(self.instance.user, read_only_field, None)
-                self.fields[read_only_field].widget.attrs['readonly'] = True
-                
+                self.fields[read_only_field].widget.attrs["readonly"] = True
 
     def save(self, commit=True):
         instance = super().save(commit=commit)
@@ -217,6 +200,7 @@ class CrmUserLabelAdmin(admin.ModelAdmin):
     list_display = ("id", "name")
     search_fields = ("name",)
     ordering = ["id"]
+
 
 @admin.register(CrmUser)
 class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):

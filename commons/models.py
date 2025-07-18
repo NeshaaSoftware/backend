@@ -1,4 +1,3 @@
-import json
 from datetime import date, datetime
 from json import JSONDecoder, JSONEncoder
 
@@ -10,8 +9,6 @@ from jdatetime import datetime as jdatetime
 
 
 class TimeStampedModel(models.Model):
-    """Abstract base class that adds created_at and updated_at fields to models."""
-
     _created_at = jmodels.jDateTimeField(auto_now_add=True)
     _updated_at = jmodels.jDateTimeField(auto_now=True)
 
@@ -28,58 +25,66 @@ class TimeStampedModel(models.Model):
         return self._updated_at
 
 
-class LogDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kargs):
-        JSONDecoder.__init__(self, object_hook=self.dict_to_object, *args, **kargs)  # noqa: B026
+class LogDecoder(JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, object_hook=self.dict_to_object)
 
     def dict_to_object(self, d):
         if "__type__" not in d:
             return d
 
-        type = d.pop("__type__")
-        if type == "datetime":
+        obj_type = d.pop("__type__")
+
+        if obj_type == "datetime":
             date_str = d.pop("date")
             try:
                 return datetime.fromisoformat(date_str)
             except ValueError:
                 return jdatetime.fromisoformat(date_str)
-        elif type == "date":
+
+        elif obj_type == "date":
             date_str = d.pop("date")
             try:
                 return date.fromisoformat(date_str)
             except ValueError:
                 return jdate.fromisoformat(date_str)
-        elif type == "model":
+
+        elif obj_type == "model":
             from django.apps import apps
 
             model = apps.get_model(d["model"])
             return model(pk=d["pk"])
-        d["__type__"] = type
+
+        d["__type__"] = obj_type
         return d
 
 
 class LogEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime) or isinstance(obj, jdatetime):
+    def default(self, o):
+        if isinstance(o, datetime | jdatetime):
             return {
                 "__type__": "datetime",
-                "date": obj.isoformat(),
+                "date": o.isoformat(),
             }
-        elif isinstance(obj, date) or isinstance(obj, jdate):
+        elif isinstance(o, date | jdate):
             return {
                 "__type__": "date",
-                "date": obj.isoformat(),
+                "date": o.isoformat(),
             }
-        elif isinstance(obj, models.Model):
+        elif isinstance(o, models.Model):
             return {
                 "__type__": "model",
-                "model": obj._meta.label,
-                "pk": obj.pk,
+                "model": o._meta.label,
+                "pk": o.pk,
             }
         else:
-            return str(obj)
+            return str(o)
 
 
 class DetailedLog(LogEntry):
-    old_values = models.JSONField(encoder=LogEncoder, decoder=LogDecoder)
-    changed_values = models.JSONField(encoder=LogEncoder, decoder=LogDecoder)
+    old_values = models.JSONField(encoder=LogEncoder, decoder=LogDecoder, help_text="Original values before change")
+    changed_values = models.JSONField(encoder=LogEncoder, decoder=LogDecoder, help_text="New values after change")
+
+    class Meta:
+        verbose_name = "Detailed Log Entry"
+        verbose_name_plural = "Detailed Log Entries"

@@ -210,6 +210,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
         ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
     )
+    ordering = ("-transaction_date",)
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         extra_context = extra_context or {}
@@ -226,6 +227,8 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             messages.error(request, "Error retrieving CourseTransaction.")
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("account", "course", "invoice", "user_account", "entry_user")
 
 class CourseTransactionInlineForm(FinancialNumberFormMixin, forms.ModelForm):
     class Meta:
@@ -246,7 +249,7 @@ class CourseTransactionInlineForm(FinancialNumberFormMixin, forms.ModelForm):
 
         if parent_registration and hasattr(parent_registration, "course"):
             course = parent_registration.course
-            self.fields["financial_account"].queryset = FinancialAccount.objects.filter(course=course)
+            self.fields["financial_account"].queryset = self.fields["financial_account"].queryset.filter(course=course)
 
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -309,6 +312,9 @@ class CourseTransactionInline(admin.TabularInline):
 
         return WrappedFormSet
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("financial_account", "course", "registration", "entry_user").prefetch_related("financial_account__course")
+
 
 class CourseTransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
     destination_account = forms.ModelChoiceField(
@@ -346,7 +352,6 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "registration",
         "amount",
         "fee",
-        "net_amount",
         "transaction_date",
         "entry_user",
         "user_account",
@@ -354,7 +359,6 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "tracking_code",
         "description",
         "_created_at",
-        "_updated_at",
     )
     list_display_links = ("id", "transaction", "transaction_type")
     search_fields = (
@@ -440,7 +444,7 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return super().save_model(request, obj, form, change)
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request)
+        qs = super().get_queryset(request).select_related("financial_account", "course", "registration", "entry_user", "user_account", "transaction")
         if not request.user.is_superuser:
             qs = qs.filter(course__managing_users=request.user)
         return qs

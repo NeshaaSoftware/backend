@@ -1,6 +1,7 @@
 import jdatetime
 from django.db import models
 from django_jalali.db import models as jmodels
+from django.contrib import admin
 
 from commons.models import TimeStampedModel
 from users.models import User
@@ -130,6 +131,10 @@ class Registration(TimeStampedModel):
     @property
     def status_display(self):
         return dict(STATUS_CHOICES)[self.status]
+
+    @admin.display(description="Paid Amount")
+    def paid_amount(self):
+        return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("amount"))["total"] or 0) - (self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("amount"))["total"] or 0)
 
     def __str__(self):
         return f"{self.user} - {self.course} ({self.status_display})"

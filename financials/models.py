@@ -21,6 +21,9 @@ class FinancialAccount(TimeStampedModel):
 
     def __str__(self):
         return self.name
+    
+    def balance(self):
+        return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("amount"))["total"] or 0) - (self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("amount"))["total"] or 0)
 
 
 class Commodity(TimeStampedModel):
@@ -70,13 +73,16 @@ class Invoice(TimeStampedModel):
     description = models.TextField(blank=True, default="")
 
     def save(self, *args, **kwargs):
-        self.update_items_amount()
+        # Only update amounts if the instance exists (has been saved before)
+        if self.pk:
+            self.update_items_amount()
         self.update_total_amount()
         return super().save(*args, **kwargs)
 
     def update_items_amount(self):
-        total = self.items.aggregate(total=models.Sum("total_price"))["total"] or 0
-        self.items_amount = total
+        if self.pk:
+            total = self.items.aggregate(total=models.Sum("total_price"))["total"] or 0
+            self.items_amount = total
 
     def update_total_amount(self):
         self.total_amount = self.items_amount - self.discount + self.vat
@@ -124,6 +130,7 @@ TRANSACTION_CATEGORY_COMPENSATION = 6
 TRANSACTION_CATEGORY_STATIONERY = 7
 TRANSACTION_CATEGORY_INVESTMENT = 8
 TRANSACTION_CATEGORY_PETTY_CASH = 9
+TRANSACTION_CATEGORY_DEBT = 10
 
 TRANSACTION_CATEGORY_CHOICES = [
     (TRANSACTION_CATEGORY_COURSE_REGISTRATION, "ثبت‌نام دوره"),
@@ -135,6 +142,7 @@ TRANSACTION_CATEGORY_CHOICES = [
     (TRANSACTION_CATEGORY_STATIONERY, "تجهیزات"),
     (TRANSACTION_CATEGORY_INVESTMENT, "سرمایه‌گذاری"),
     (TRANSACTION_CATEGORY_PETTY_CASH, "تنخواه"),
+    (TRANSACTION_CATEGORY_DEBT, "قرض و بدهی"),
 ]
 
 
@@ -150,7 +158,7 @@ class Transaction(TimeStampedModel):
     net_amount = models.PositiveIntegerField()
     name = models.CharField(max_length=100, blank=True, default="")
     user_account = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="transactions")
-    tracking_code = models.CharField(max_length=100, blank=True, default="")
+    tracking_code = models.CharField(max_length=100, blank=True, default="", db_index=True)
     entry_user = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="entry_transactions")
     description = models.TextField(blank=True, default="")
 

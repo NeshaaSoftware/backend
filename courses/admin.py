@@ -1,3 +1,5 @@
+import hashlib
+import logging
 import pandas as pd
 from dal import autocomplete
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
@@ -184,6 +186,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
     readonly_fields = [
         "_created_at",
         "_updated_at",
+        "paid_amount",
     ]
     autocomplete_fields = ["user", "course", "supporting_user"]
     fieldsets = (
@@ -196,7 +199,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             {
                 "fields": (
                     "payment_status",
-                    ("initial_price", "discount", "tuition"),
+                    ("initial_price", "discount", "tuition", "paid_amount"),
                     "next_payment_date",
                     "payment_description",
                 )
@@ -208,8 +211,13 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             {"fields": ("_created_at", "_updated_at")},
         ),
     )
+    
     change_list_template = "admin/courses/registration/change_list.html"
     inlines = [CourseTransactionInline]
+
+    def paid_amount(self, obj):
+        amount = obj.paid_amount()
+        return f"{amount:,}" if amount else "0"
 
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
@@ -361,6 +369,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             registration_date = data.get("registration_date", None)
             discount = data.get("discount", 0) or 0
             initial_price = data.get("initial_price", 0) or 0
+            paid_amount = data.get("paid_amount", 0) or 0
 
             if username in users_dic:
                 user = users_dic[username]
@@ -436,12 +445,12 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                     made_registration += 1
                 except Exception as e:
                     logs.append(["Error", str(phone), str(user[2]), str(user[3]), first_name, str(e)])
-            if make_transaction and course_transaction_dic.get(registration_dic[user[0]], None) is None:
+            if make_transaction and course_transaction_dic.get(registration_dic[user[0]], None) is None and paid_amount > 0:
                 course_transaction = CourseTransaction.objects.create(
                     registration_id=registration_dic[user[0]],
                     user_account_id=user[0],
                     course=course,
-                    amount=tuition,
+                    amount=paid_amount,
                     transaction_type=1,
                     transaction_category=INCOME_CATEGORY_REGISTRATION,
                     financial_account=data["financial_account"],
@@ -710,7 +719,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "first_name": first_name,
                                 "last_name": last_name,
                                 "email": row["Email"],
-                                "tuition": row["Final Total"],
+                                "paid_amount": row["Final Total"],
+                                "tuition": int(row["Net Total"]) - int(row["Discount Amount"]),
                                 "initial_price": row["Net Total"],
                                 "discount": row["Discount Amount"],
                                 "education": details.get("تحصیلات", ""),
@@ -775,7 +785,7 @@ class AttendanceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "_updated_at",
     ]
     list_filter = [("attended_at", JDateFieldListFilter)]
-    search_fields = ["user__full_name", "session__session_name", "user__phone_number"]
+    search_fields = ["user__first_name", "user__last_name", "session__session_name", "user__phone_number"]
     readonly_fields = ["user", "session", "attended_at", "_created_at", "_updated_at"]
     autocomplete_fields = ["user", "session"]
     fieldsets = (

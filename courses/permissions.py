@@ -32,7 +32,7 @@ def requires_course_managing_permission(view_func):
         except Exception as e:
             from .models import Course
 
-            if Course.DoesNotExist in e.__class__.__mro__:
+            if isinstance(e, Course.DoesNotExist):
                 messages.error(request, "دوره مورد نظر یافت نشد.")
                 return redirect("admin:courses_course_changelist")
             else:

@@ -3,6 +3,7 @@ from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
+from django.contrib import admin
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -15,12 +16,15 @@ from .models import Commodity, CourseTransaction, Customer, FinancialAccount, In
 class FinancialAccountAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = ("name", "description", "_created_at", "_updated_at")
     search_fields = ("name", "description")
-    readonly_fields = ("_created_at", "_updated_at")
+    readonly_fields = ("_created_at", "_updated_at", "balance")
     filter_horizontal = ("course",)
     fieldsets = (
-        ("Account Information", {"fields": ("name", "description", "course")}),
+        ("Account Information", {"fields": ("name", "description", "course", "asset_type", "balance")}),
         ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
+    def balance(self, obj):
+        amount = obj.balance()
+        return f"{amount:,}" if amount else "0"
 
 
 @admin.register(Commodity)
@@ -146,16 +150,16 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     form = TransactionAdminForm
     list_display = (
         "id",
-        "invoice",
+        "account",
         "transaction_type",
+        "transaction_category",
         "transaction_date",
         "amount",
         "fee",
         "net_amount",
         "name",
-        "user_account",
+        "invoice",
         "tracking_code",
-        "account",
         "course",
         "entry_user",
         "description",

@@ -157,7 +157,7 @@ class Transaction(TimeStampedModel):
     transaction_category = models.IntegerField(choices=TRANSACTION_CATEGORY_CHOICES, default=1)
     transaction_date = jmodels.jDateTimeField(default=jdatetime.datetime.now, db_index=True, help_text="تاریخ تراکنش")
     amount = models.PositiveIntegerField()
-    fee = models.PositiveIntegerField()
+    fee = models.PositiveIntegerField(default=0, blank=True)
     net_amount = models.PositiveIntegerField()
     name = models.CharField(max_length=100, blank=True, default="")
     user_account = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="transactions")

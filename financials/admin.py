@@ -166,9 +166,10 @@ class TransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
                 course=instance.course,
                 user_account=instance.user_account,
                 entry_user=instance.entry_user,
+                name=instance.name,
                 transaction_date=instance.transaction_date,
                 tracking_code=instance.tracking_code,
-                description=f"{instance.description}\nTransfer for {instance.pk}",
+                description=f"{instance.description}\nTransfer for transfer",
             )
         return instance
 

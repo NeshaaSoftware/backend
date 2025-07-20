@@ -168,7 +168,7 @@ class TransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
                 entry_user=instance.entry_user,
                 transaction_date=instance.transaction_date,
                 tracking_code=instance.tracking_code,
-                description=f"{instance.description}\nTransfer for {instance.id}",
+                description=f"{instance.description}\nTransfer for {instance.pk}",
             )
         return instance
 
@@ -217,7 +217,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("entry_user", DALFRelatedFieldAjax),
         "transaction_date",
     )
-    readonly_fields = ("net_amount", "_created_at", "_updated_at")
+    readonly_fields = ("net_amount", "entry_user", "_created_at", "_updated_at")
     autocomplete_fields = (
         "invoice",
         "account",
@@ -246,6 +246,15 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
         ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
         ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
+        (
+            "transfer",
+            {
+                "fields": (
+                    "destination_account",
+                    "make_transfer",
+                )
+            },
+        ),
     )
     ordering = ("-transaction_date",)
 
@@ -267,6 +276,10 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("account", "course", "invoice", "user_account", "entry_user")
 
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.entry_user = request.user
+        return super().save_model(request, obj, form, change)
 
 class CourseTransactionInlineForm(FinancialNumberFormMixin, forms.ModelForm):
     class Meta:

@@ -9,6 +9,11 @@ DEBUG = False
 TESTING = "test" in sys.argv or "PYTEST_VERSION" in os.environ
 ALLOWED_HOSTS = []
 
+PAYPING_TOKEN = os.getenv("PAYPING_TOKEN", "")
+ELANAK_USERNAME = os.getenv("ELANAK_USERNAME", "")
+ELANAK_PASSWORD = os.getenv("ELANAK_PASSWORD", "")
+ELANAK_LINE_NUMBERS = os.getenv("ELANAK_NUMBERS", "").split(",")
+
 INSTALLED_APPS = [
     "dal",
     "dal_select2",

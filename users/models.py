@@ -8,6 +8,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django_jalali.db import models as jmodels
 from phonenumber_field.modelfields import PhoneNumberField
+from django.utils import timezone
 
 from commons.models import TimeStampedModel
 
@@ -165,7 +166,7 @@ class CrmLog(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
     action = models.IntegerField(choices=CRM_LOG_ACTION_CHOICES, default=1, db_index=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="crm_logs")
-    date = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now, db_index=True)
+    date = jmodels.jDateTimeField(blank=True, default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ["-date"]
@@ -174,8 +175,13 @@ class CrmLog(TimeStampedModel):
         return f"{self.pk} - {self.crm.user.full_name} - {self.get_action_display()} - {self.date}"
 
 
+ELANAK_SMS_PROVIDER = 0
+KAVENEGAR_SMS_PROVIDER = 1
+SMS_LINE_PROVIDERS = [(ELANAK_SMS_PROVIDER, "Elanak"), (KAVENEGAR_SMS_PROVIDER, "Kavenegar")]
+
+
 class SMSLine(TimeStampedModel):
-    provider = models.CharField(max_length=50, blank=True, default="")
+    provider = models.IntegerField(choices=SMS_LINE_PROVIDERS, blank=True, default=1)
     line_number = models.CharField(max_length=20, unique=True, db_index=True)
 
     class Meta:
@@ -189,13 +195,16 @@ class SMSLine(TimeStampedModel):
         return SMSLine.objects.filter(line_number__isnull=False).first()
 
 
-class SMSProvider:
-    line_number = None
-
+class SMSLineHandler:
+    sms_line = None
+    
     __metaclass__ = abc.ABCMeta
+    
+    def __init__(self, sms_line):
+        self.sms_line = sms_line
 
     def _log_sms(self, text, recieve_number, result_json):
-        SMSLog.objects.create(line_number=self.line_number, phone_number=recieve_number, text=text, status=0, response=result_json)
+        SMSLog.objects.create(line_number=self.sms_line, phone_number=recieve_number, text=text, status=0, response=result_json, user=User.objects.filter(phone_number=recieve_number).first())
 
     @abc.abstractmethod
     def _send(self, text, recieve_number):
@@ -206,27 +215,48 @@ class SMSProvider:
         self._log_sms(text, recieve_number, result_json)
 
 
-class ElanakSMSProvider(SMSProvider):
+class ElanakSMSHandler(SMSLineHandler):
     url_template = (
         "https://payammatni.com/webservice/url/send.php?method=sendsms&format=json"
         "&from={line_number}&to={recieve_number}&text={text}&type=0"
         "&username={username}&password={password}"
     )
 
-    def __init__(self, line_number):
-        self.line_number = line_number
-
     def _send(self, text, recieve_number):
         url = self.url_template.format(
-            line_number=self.line_number,
+            line_number=self.sms_line.line_number,
             recieve_number=recieve_number,
-            text=text,
+            text=text+"\nلغو۱۱",
             username=settings.ELANAK_USERNAME,
             password=settings.ELANAK_PASSWORD,
         )
         result = requests.get(url, timeout=30)
         return result.json()
 
+
+class SMSLogManager(models.Manager):
+    global SMS_LINES
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.SMS_LINES = None
+
+    def get_sms_lines(self):
+        if self.SMS_LINES is None:
+            self.SMS_LINES = {
+                sms_line.line_number: ElanakSMSHandler(sms_line) for sms_line in SMSLine.objects.filter(provider=ELANAK_SMS_PROVIDER)
+            }
+        return self.SMS_LINES
+
+    def create_log(self, phone_number, text, line_number, status=0, response=None, user=None):
+        return self.create(
+            phone_number=phone_number,
+            text=text,
+            line_number=line_number,
+            status=status,
+            response=response,
+            user=user,
+        )
 
 class SMSLog(TimeStampedModel):
     line_number = models.ForeignKey(
@@ -237,7 +267,7 @@ class SMSLog(TimeStampedModel):
     text = models.TextField()
     status = models.IntegerField(choices=[(0, "Pending"), (1, "Sent"), (2, "Failed")], default=0, db_index=True)
     response = models.JSONField(blank=True, null=True)
-    date = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now, db_index=True)
+    date = jmodels.jDateTimeField(blank=True, default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ["-_created_at"]

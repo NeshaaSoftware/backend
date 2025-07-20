@@ -140,9 +140,37 @@ class InvoiceItemAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
 
 class TransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
+    destination_account = forms.ModelChoiceField(
+        queryset=FinancialAccount.objects.all(),
+        widget=autocomplete.ModelSelect2(url="financialaccount-autocomplete"),
+        label="Destination Account",
+        required=False,
+        help_text="Destination Account",
+    )
+    make_transfer = forms.BooleanField(required=False, initial=False, help_text="Make Transfer")
+
     class Meta:
         model = Transaction
         fields = "__all__"  # noqa
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        destination_account = self.cleaned_data.get("destination_account")
+        make_transfer = self.cleaned_data.get("make_transfer", False)
+        if destination_account and make_transfer:
+            Transaction.objects.create(
+                transaction_category=instance.transaction_category,
+                transaction_type=3 - instance.transaction_type,
+                account=destination_account,
+                amount=instance.amount,
+                course=instance.course,
+                user_account=instance.user_account,
+                entry_user=instance.entry_user,
+                transaction_date=instance.transaction_date,
+                tracking_code=instance.tracking_code,
+                description=f"{instance.description}\nTransfer for {instance.id}",
+            )
+        return instance
 
 
 @admin.register(Transaction)
@@ -356,10 +384,13 @@ class CourseTransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
                 financial_account=destination_account,
                 amount=instance.amount,
                 course=instance.course,
+                registration=instance.registration,
+                customer_name=instance.customer_name,
                 entry_user=instance.entry_user,
+                user_account=instance.user_account,
                 transaction_date=instance.transaction_date,
                 tracking_code=instance.tracking_code,
-                description=instance.description,
+                description=f"{instance.description}\nTransfer for {instance.id}",
             )
         return instance
 

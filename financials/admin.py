@@ -150,22 +150,31 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     form = TransactionAdminForm
     list_display = (
         "id",
-        "account",
-        "transaction_type",
-        "transaction_category",
         "transaction_date",
+        "ttype",
+        "account",
+        "tcategory",
         "amount",
         "fee",
-        "net_amount",
         "name",
         "invoice",
         "tracking_code",
         "course",
+        "user_account",
         "entry_user",
         "description",
+        "net_amount",
         "_created_at",
         "_updated_at",
     )
+    
+    @admin.display(description="type", ordering="transaction_type")
+    def ttype(self, obj):
+        return obj.get_transaction_type_display()
+    @admin.display(description="category", ordering="transaction_category")
+    def tcategory(self, obj):
+        return obj.get_transaction_category_display()
+    
     search_fields = (
         "id",
         "user_account__username",

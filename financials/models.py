@@ -6,13 +6,14 @@ from django_jalali.db import models as jmodels
 from commons.models import TimeStampedModel
 from courses.models import Course
 
-
 ASSET_TYPE_CHOICES = [
     (1, "ریال"),
     (2, "صندوق درآمد ثابت"),
     (3, "رمز ارز"),
     (4, "ارز"),
 ]
+
+
 class FinancialAccount(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     course = models.ManyToManyField(Course, related_name="financial_accounts", blank=True)
@@ -21,9 +22,11 @@ class FinancialAccount(TimeStampedModel):
 
     def __str__(self):
         return self.name
-    
+
     def balance(self):
-        return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("amount"))["total"] or 0) - (self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("amount"))["total"] or 0)
+        return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("amount"))["total"] or 0) - (
+            self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("amount"))["total"] or 0
+        )
 
 
 class Commodity(TimeStampedModel):

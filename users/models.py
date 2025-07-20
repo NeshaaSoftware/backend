@@ -1,4 +1,8 @@
+import abc
+
 import jdatetime
+import requests
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -168,3 +172,75 @@ class CrmLog(TimeStampedModel):
 
     def __str__(self):
         return f"{self.pk} - {self.crm.user.full_name} - {self.get_action_display()} - {self.date}"
+
+
+class SMSLine(TimeStampedModel):
+    provider = models.CharField(max_length=50, blank=True, default="")
+    line_number = models.CharField(max_length=20, unique=True, db_index=True)
+
+    class Meta:
+        ordering = ["line_number"]
+
+    def __str__(self):
+        return str(self.line_number) if self.line_number else "No Line Number"
+
+    @staticmethod
+    def get_available_line():
+        return SMSLine.objects.filter(line_number__isnull=False).first()
+
+
+class SMSProvider:
+    line_number = None
+
+    __metaclass__ = abc.ABCMeta
+
+    def _log_sms(self, text, recieve_number, result_json):
+        SMSLog.objects.create(line_number=self.line_number, phone_number=recieve_number, text=text, status=0, response=result_json)
+
+    @abc.abstractmethod
+    def _send(self, text, recieve_number):
+        pass
+
+    def send(self, text, recieve_number):
+        result_json = self._send(text, recieve_number)
+        self._log_sms(text, recieve_number, result_json)
+
+
+class ElanakSMSProvider(SMSProvider):
+    url_template = (
+        "https://payammatni.com/webservice/url/send.php?method=sendsms&format=json"
+        "&from={line_number}&to={recieve_number}&text={text}&type=0"
+        "&username={username}&password={password}"
+    )
+
+    def __init__(self, line_number):
+        self.line_number = line_number
+
+    def _send(self, text, recieve_number):
+        url = self.url_template.format(
+            line_number=self.line_number,
+            recieve_number=recieve_number,
+            text=text,
+            username=settings.ELANAK_USERNAME,
+            password=settings.ELANAK_PASSWORD,
+        )
+        result = requests.get(url, timeout=30)
+        return result.json()
+
+
+class SMSLog(TimeStampedModel):
+    line_number = models.ForeignKey(
+        SMSLine, on_delete=models.CASCADE, related_name="sms_logs", default=SMSLine.get_available_line, blank=True
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sms_logs", null=True, blank=True, db_index=True)
+    phone_number = PhoneNumberField(db_index=True)
+    text = models.TextField()
+    status = models.IntegerField(choices=[(0, "Pending"), (1, "Sent"), (2, "Failed")], default=0, db_index=True)
+    response = models.JSONField(blank=True, null=True)
+    date = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now, db_index=True)
+
+    class Meta:
+        ordering = ["-_created_at"]
+
+    def __str__(self):
+        return f"{self.phone_number} - {self.text[:30]} - {self.status} - {self.date}"

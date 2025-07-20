@@ -1,5 +1,3 @@
-import hashlib
-import logging
 import pandas as pd
 from dal import autocomplete
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
@@ -135,7 +133,7 @@ class RegistrationExcelUploadForm(forms.Form):
         help_text="Multiplier to convert currency to Toman. Default is 1000 for Rials to Tomans.",
     )
     course = forms.ModelChoiceField(
-        queryset=Course.objects.select_related('course_type'),
+        queryset=Course.objects.select_related("course_type"),
         widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
@@ -148,7 +146,7 @@ class RegistrationSazitoUploadForm(forms.Form):
     update_name = forms.BooleanField(initial=False, required=False)
     make_transaction = forms.BooleanField(initial=True, required=False)
     course = forms.ModelChoiceField(
-        queryset=Course.objects.select_related('course_type'),
+        queryset=Course.objects.select_related("course_type"),
         widget=autocomplete.ModelSelect2(url="course-autocomplete"),
         label="Course",
         required=True,
@@ -211,7 +209,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             {"fields": ("_created_at", "_updated_at")},
         ),
     )
-    
+
     change_list_template = "admin/courses/registration/change_list.html"
     inlines = [CourseTransactionInline]
 
@@ -252,7 +250,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             url_user = reverse("admin:users_user_change", args=[registration.user.id])
             url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
             extra_context["user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user)
-            extra_context["crm_user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm)
+            extra_context["crm_user_button"] = format_html(
+                '<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm
+            )
         except Exception:
             extra_context["crm_user_button"] = None
             extra_context["user_button"] = None
@@ -732,7 +732,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "tracking_code": row["Payment Reference Code"],
                                 "financial_account": FinancialAccount.objects.get(name="پی‌پینگ"),
                                 "entry_user": request.user,
-                                "status": "حاضر در دوره - عدم سررسید"
+                                "status": "حاضر در دوره - عدم سررسید",
                             }
                         )
 

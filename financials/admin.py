@@ -3,7 +3,6 @@ from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
-from django.contrib import admin
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -22,6 +21,7 @@ class FinancialAccountAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("Account Information", {"fields": ("name", "description", "course", "asset_type", "balance")}),
         ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
     )
+
     def balance(self, obj):
         amount = obj.balance()
         return f"{amount:,}" if amount else "0"
@@ -230,6 +230,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("account", "course", "invoice", "user_account", "entry_user")
 
+
 class CourseTransactionInlineForm(FinancialNumberFormMixin, forms.ModelForm):
     class Meta:
         model = CourseTransaction
@@ -313,7 +314,12 @@ class CourseTransactionInline(admin.TabularInline):
         return WrappedFormSet
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related("financial_account", "course", "registration", "entry_user").prefetch_related("financial_account__course")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("financial_account", "course", "registration", "entry_user")
+            .prefetch_related("financial_account__course")
+        )
 
 
 class CourseTransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
@@ -335,7 +341,17 @@ class CourseTransactionAdminForm(FinancialNumberFormMixin, forms.ModelForm):
         destination_account = self.cleaned_data.get("destination_account")
         make_transfer = self.cleaned_data.get("make_transfer", False)
         if destination_account and make_transfer:
-            CourseTransaction.objects.create(transaction_category=instance.transaction_category, transaction_type=3 - instance.transaction_type, financial_account=destination_account, amount=instance.amount, course=instance.course, entry_user=instance.entry_user, transaction_date=instance.transaction_date, tracking_code=instance.tracking_code, description=instance.description)
+            CourseTransaction.objects.create(
+                transaction_category=instance.transaction_category,
+                transaction_type=3 - instance.transaction_type,
+                financial_account=destination_account,
+                amount=instance.amount,
+                course=instance.course,
+                entry_user=instance.entry_user,
+                transaction_date=instance.transaction_date,
+                tracking_code=instance.tracking_code,
+                description=instance.description,
+            )
         return instance
 
 
@@ -411,7 +427,15 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ),
         ("مبالغ", {"fields": ("amount", "fee", "net_amount")}),
         (None, {"fields": ("_created_at", "_updated_at")}),
-        ("transfer", {"fields": ("destination_account", "make_transfer",)}),
+        (
+            "transfer",
+            {
+                "fields": (
+                    "destination_account",
+                    "make_transfer",
+                )
+            },
+        ),
     )
     change_list_template = "admin/financials/coursetransaction/change_list.html"
 
@@ -444,7 +468,11 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return super().save_model(request, obj, form, change)
 
     def get_queryset(self, request):
-        qs = super().get_queryset(request).select_related("financial_account", "course", "registration", "entry_user", "user_account", "transaction")
+        qs = (
+            super()
+            .get_queryset(request)
+            .select_related("financial_account", "course", "registration", "entry_user", "user_account", "transaction")
+        )
         if not request.user.is_superuser:
             qs = qs.filter(course__managing_users=request.user)
         return qs

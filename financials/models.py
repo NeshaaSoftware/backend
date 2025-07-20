@@ -24,8 +24,8 @@ class FinancialAccount(TimeStampedModel):
         return self.name
 
     def balance(self):
-        return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("amount"))["total"] or 0) - (
-            self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("amount"))["total"] or 0
+        return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("net_amount"))["total"] or 0) - (
+            self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("net_amount"))["total"] or 0
         )
 
 

@@ -20,7 +20,7 @@ def get_payping_transactions(from_date, to_date, transaction_type=PAYPING_TRANSA
     request_json = {
         "offset": 0,
         "limit": 50,
-        "transactionType": transaction_type,
+        "transactionType": 13 - transaction_type,
         "fromDate": from_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "toDate": to_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }

@@ -9,6 +9,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
+from django.utils import timezone
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 from financials.admin import CourseTransactionInline
@@ -354,16 +355,16 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             username = data["username"]
             first_name = data.get("first_name", "")
             last_name = data.get("last_name", "")
-            telegram_id = data.get("telegram_id", "")
-            email = data.get("email", "")
+            telegram_id = data.get("telegram_id", "") or ""
+            email = data.get("email", "") or ""
             education = User.get_education_from_text(data.get("education", None))
-            profession = data.get("profession", "")
+            profession = data.get("profession", "") or ""
             age = data.get("age", None)
             gender = User.get_gender_from_text(data.get("gender", ""))
             national_id = normalize_national_id(data.get("national_id", "")) or ""
-            english_first_name = data.get("english_first_name", "")
-            english_last_name = data.get("english_last_name", "")
-            referer_name = data.get("referer_name", "")
+            english_first_name = data.get("english_first_name", "") or ""
+            english_last_name = data.get("english_last_name", "") or ""
+            referer_name = data.get("referer_name", "") or ""
             tuition = data.get("tuition", 0) or 0
             status, payment_status = get_status_from_text(data.get("status", None))
             registration_date = data.get("registration_date", None)
@@ -541,18 +542,19 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "phone": phone,
                                 "first_name": first_name,
                                 "last_name": last_name,
-                                "telegram_id": telegram_id,
-                                "email": row.get("ایمیل", ""),
+                                "telegram_id": telegram_id or "",
+                                "email": row.get("ایمیل", "") or "",
                                 "education": row.get("تحصیلات", ""),
-                                "profession": row.get("حرفه", ""),
-                                "national_id": row.get("کد ملی", ""),
+                                "profession": row.get("حرفه", "") or "",
+                                "national_id": row.get("کد ملی", "") or "",
                                 "age": row.get("سن", None),
                                 "gender": row.get("جنسیت", None),
-                                "english_first_name": row.get("Name", ""),
-                                "english_last_name": row.get("Surname", ""),
-                                "referer_name": row.get("معرف", None),
+                                "english_first_name": row.get("Name", "") or "",
+                                "english_last_name": row.get("Surname", "") or "",
+                                "referer_name": row.get("معرف", None) or "",
                                 "status": row.get("وضعیت", None),
                                 "tuition": float(row.get("مبلغ نهایی", 0) or 0) * currency_to_toman_multiplier,
+                                "registration_date": timezone.now()
                             }
                         )
                     new_logs, made_users, made_registration, bad_name = self.add_and_register_users(

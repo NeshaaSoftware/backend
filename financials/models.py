@@ -76,7 +76,6 @@ class Invoice(TimeStampedModel):
     description = models.TextField(blank=True, default="")
 
     def save(self, *args, **kwargs):
-        # Only update amounts if the instance exists (has been saved before)
         if self.pk:
             self.update_items_amount()
         self.update_total_amount()

@@ -79,7 +79,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-USE_I18N = True
+LANGUAGES = [('en', 'English'),]
+USE_I18N = False
 USE_TZ = True
 TIME_ZONE = "Asia/Tehran"
 USE_L10N = True

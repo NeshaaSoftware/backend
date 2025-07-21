@@ -7,6 +7,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
+from commons.forms import FinancialNumberFormMixin
 
 from .models import Commodity, CourseTransaction, Customer, FinancialAccount, Invoice, InvoiceItem, Transaction
 
@@ -87,21 +88,6 @@ class InvoiceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         ("مبالغ", {"fields": ("items_amount", "discount", "vat", "total_amount", "is_paid")}),
         ("زمان‌بندی", {"fields": ("_created_at", "_updated_at")}),
     )
-
-
-class BigNumberInput(forms.NumberInput):
-    def __init__(self, *args, **kwargs):
-        attrs = kwargs.get("attrs", {})
-        attrs["style"] = attrs.get("style", "") + "font-size: 1.2em; min-width: 140px;"
-        super().__init__(*args, **kwargs)
-
-
-class FinancialNumberFormMixin(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for _, field in self.fields.items():
-            if isinstance(field.widget, forms.NumberInput):
-                field.widget = BigNumberInput(attrs=field.widget.attrs)
 
 
 class InvoiceItemAdminForm(FinancialNumberFormMixin, forms.ModelForm):
@@ -196,14 +182,15 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         "_created_at",
         "_updated_at",
     )
-    
+
     @admin.display(description="type", ordering="transaction_type")
     def ttype(self, obj):
         return obj.get_transaction_type_display()
+
     @admin.display(description="category", ordering="transaction_category")
     def tcategory(self, obj):
         return obj.get_transaction_category_display()
-    
+
     search_fields = (
         "id",
         "user_account__username",
@@ -281,6 +268,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         if not change:
             obj.entry_user = request.user
         return super().save_model(request, obj, form, change)
+
 
 class CourseTransactionInlineForm(FinancialNumberFormMixin, forms.ModelForm):
     class Meta:

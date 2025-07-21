@@ -8,9 +8,9 @@ from commons.utils import normalize_phone
 from financials.models import Transaction
 from users.models import User
 
-
 PAYPING_TRANSACTION_TYPE_RECIEVE = 6
 PAYPING_TRANSACTION_TYPE_SEND = 7
+
 
 def get_payping_transactions(from_date, to_date, transaction_type=PAYPING_TRANSACTION_TYPE_RECIEVE):
     headers = {"Authorization": f"Bearer {settings.PAYPING_TOKEN}", "Content-Type": "application/json"}

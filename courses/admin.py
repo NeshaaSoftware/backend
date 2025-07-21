@@ -7,11 +7,12 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
-from django.utils import timezone
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
+from commons.forms import FinancialNumberFormMixin
 from financials.admin import CourseTransactionInline
 from financials.models import FinancialAccount
 
@@ -155,8 +156,15 @@ class RegistrationSazitoUploadForm(forms.Form):
     )
 
 
+class RegistrationAdminForm(FinancialNumberFormMixin, forms.ModelForm):
+    class Meta:
+        model = Registration
+        fields = "__all__"  # noqa
+
+
 @admin.register(Registration)
 class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
+    form = RegistrationAdminForm
     list_display = [
         "user",
         "course",
@@ -554,7 +562,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "referer_name": row.get("معرف", None) or "",
                                 "status": row.get("وضعیت", None),
                                 "tuition": float(row.get("مبلغ نهایی", 0) or 0) * currency_to_toman_multiplier,
-                                "registration_date": timezone.now()
+                                "registration_date": timezone.now(),
                             }
                         )
                     new_logs, made_users, made_registration, bad_name = self.add_and_register_users(

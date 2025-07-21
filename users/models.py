@@ -1,14 +1,13 @@
 import abc
 
-import jdatetime
 import requests
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 from django_jalali.db import models as jmodels
 from phonenumber_field.modelfields import PhoneNumberField
-from django.utils import timezone
 
 from commons.models import TimeStampedModel
 
@@ -197,14 +196,21 @@ class SMSLine(TimeStampedModel):
 
 class SMSLineHandler:
     sms_line = None
-    
+
     __metaclass__ = abc.ABCMeta
-    
+
     def __init__(self, sms_line):
         self.sms_line = sms_line
 
     def _log_sms(self, text, recieve_number, result_json):
-        SMSLog.objects.create(line_number=self.sms_line, phone_number=recieve_number, text=text, status=0, response=result_json, user=User.objects.filter(phone_number=recieve_number).first())
+        SMSLog.objects.create(
+            line_number=self.sms_line,
+            phone_number=recieve_number,
+            text=text,
+            status=0,
+            response=result_json,
+            user=User.objects.filter(phone_number=recieve_number).first(),
+        )
 
     @abc.abstractmethod
     def _send(self, text, recieve_number):
@@ -226,7 +232,7 @@ class ElanakSMSHandler(SMSLineHandler):
         url = self.url_template.format(
             line_number=self.sms_line.line_number,
             recieve_number=recieve_number,
-            text=text+"\nلغو۱۱",
+            text=text + "\nلغو۱۱",  # noqa
             username=settings.ELANAK_USERNAME,
             password=settings.ELANAK_PASSWORD,
         )
@@ -236,7 +242,7 @@ class ElanakSMSHandler(SMSLineHandler):
 
 class SMSLogManager(models.Manager):
     global SMS_LINES
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.SMS_LINES = None
@@ -257,6 +263,7 @@ class SMSLogManager(models.Manager):
             response=response,
             user=user,
         )
+
 
 class SMSLog(TimeStampedModel):
     line_number = models.ForeignKey(

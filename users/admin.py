@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.urls import reverse
 from django.utils.html import format_html
+from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin
 from courses.admin import CourseTeamInline
@@ -299,15 +300,16 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
 
 
 @admin.register(Organization)
-class OrganizationAdmin(admin.ModelAdmin):
+class OrganizationAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     autocomplete_fields = ("contact_user",)
     list_display = ("name", "contact_user")
     search_fields = ("name", "contact_user__username", "contact_user__phone_number")
 
 
 @admin.register(CrmLog)
-class CrmLogAdmin(admin.ModelAdmin):
+class CrmLogAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = ("id", "crm", "user", "action", "date", "description")
+    list_filter = ("action", ("crm", DALFRelatedFieldAjax), ("user", DALFRelatedFieldAjax), ("date", JDateFieldListFilter))
     search_fields = ("crm__user__username", "crm__user__phone_number", "user__username", "user__phone_number")
     autocomplete_fields = ("crm", "user")
 

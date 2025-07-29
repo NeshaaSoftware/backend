@@ -2,9 +2,9 @@ from django.contrib.admin.models import ADDITION, CHANGE
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from django.utils import timezone as timetzone
 
 from commons.models import DetailedLog
+from commons.utils import get_jdatetime_now_with_timezone
 
 from .models import CrmLog
 
@@ -12,7 +12,7 @@ from .models import CrmLog
 @receiver(pre_save, sender=CrmLog)
 def crm_log_pre_save(sender, instance, **kwargs):
     if instance.date is None:
-        instance.date = timetzone.now().replace(microsecond=0)
+        instance.date = get_jdatetime_now_with_timezone().replace(microsecond=0)
     if not instance.pk:
         return
     old_instance = CrmLog.objects.get(pk=instance.pk)

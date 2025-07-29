@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from commons.utils import get_jdatetime_now_with_timezone
 from courses.models import Course, CourseSession, CourseType, Registration
 from users.models import CrmUser, User
 
@@ -80,8 +81,8 @@ class Command(BaseCommand):
             CourseSession(
                 course_id=i // 10 + 1,
                 session_name=f"Session {i % 10 + 1}",
-                start_date=timezone.now(),
-                end_date=timezone.now() + timezone.timedelta(days=i),
+                start_date=get_jdatetime_now_with_timezone(),
+                end_date=get_jdatetime_now_with_timezone() + timezone.timedelta(days=i),
                 location=f"Location {i + 1}",
             )
             for i in range(300)
@@ -119,8 +120,8 @@ class Command(BaseCommand):
             CrmUser(
                 user_id=i,
                 status=1,
-                last_follow_up=timezone.now(),
-                next_follow_up=timezone.now() + timezone.timedelta(days=i % 10),
+                last_follow_up=get_jdatetime_now_with_timezone(),
+                next_follow_up=get_jdatetime_now_with_timezone() + timezone.timedelta(days=i % 10),
                 joined_main_group=True,
             )
             for i in range(1, 201)

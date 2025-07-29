@@ -5,11 +5,11 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.utils import timezone
 from django_jalali.db import models as jmodels
 from phonenumber_field.modelfields import PhoneNumberField
 
 from commons.models import TimeStampedModel
+from commons.utils import get_jdatetime_now_with_timezone
 
 GENDER_CHOICES = [
     (1, "مرد"),
@@ -165,7 +165,7 @@ class CrmLog(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
     action = models.IntegerField(choices=CRM_LOG_ACTION_CHOICES, default=1, db_index=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="crm_logs")
-    date = jmodels.jDateTimeField(blank=True, default=timezone.now, db_index=True)
+    date = jmodels.jDateTimeField(blank=True, default=get_jdatetime_now_with_timezone, db_index=True)
 
     class Meta:
         ordering = ["-date"]
@@ -274,7 +274,7 @@ class SMSLog(TimeStampedModel):
     text = models.TextField()
     status = models.IntegerField(choices=[(0, "Pending"), (1, "Sent"), (2, "Failed")], default=0, db_index=True)
     response = models.JSONField(blank=True, null=True)
-    date = jmodels.jDateTimeField(blank=True, default=timezone.now, db_index=True)
+    date = jmodels.jDateTimeField(blank=True, default=get_jdatetime_now_with_timezone, db_index=True)
 
     class Meta:
         ordering = ["-_created_at"]

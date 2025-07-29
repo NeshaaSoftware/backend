@@ -1,9 +1,9 @@
-import jdatetime
 from django.core.validators import MinValueValidator
 from django.db import models
 from django_jalali.db import models as jmodels
 
 from commons.models import TimeStampedModel
+from commons.utils import get_jdatetime_now_with_timezone
 from courses.models import Course
 
 ASSET_TYPE_CHOICES = [
@@ -154,7 +154,7 @@ class Transaction(TimeStampedModel):
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL)
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
     transaction_category = models.IntegerField(choices=TRANSACTION_CATEGORY_CHOICES, default=1)
-    transaction_date = jmodels.jDateTimeField(default=jdatetime.datetime.now, db_index=True, help_text="تاریخ تراکنش")
+    transaction_date = jmodels.jDateTimeField(default=get_jdatetime_now_with_timezone, db_index=True, help_text="تاریخ تراکنش")
     amount = models.PositiveIntegerField()
     fee = models.PositiveIntegerField(default=0, blank=True)
     net_amount = models.PositiveIntegerField()
@@ -222,7 +222,7 @@ class CourseTransaction(TimeStampedModel):
     net_amount = models.PositiveIntegerField(help_text="تومان")
     customer_name = models.CharField(max_length=100, blank=True, default="")
     user_account = models.ForeignKey("users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions")
-    transaction_date = jmodels.jDateTimeField(default=jdatetime.datetime.now, db_index=True, help_text="تاریخ تراکنش")
+    transaction_date = jmodels.jDateTimeField(default=get_jdatetime_now_with_timezone, db_index=True, help_text="تاریخ تراکنش")
     tracking_code = models.CharField(max_length=100, blank=True, default="")
     entry_user = models.ForeignKey("users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry")
     description = models.TextField(blank=True, default="")

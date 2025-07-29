@@ -7,12 +7,12 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
-from django.utils import timezone
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 from commons.forms import FinancialNumberFormMixin
+from commons.utils import get_jdatetime_now_with_timezone
 from financials.admin import CourseTransactionInline
 from financials.models import FinancialAccount
 
@@ -47,6 +47,7 @@ class CourseTeamInline(admin.TabularInline):
     autocomplete_fields = ["user"]
     readonly_fields = ["user"]
 
+
 @admin.register(CourseTeam)
 class CourseTeamAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     list_display = ["course", "user", "status", "_created_at", "_updated_at"]
@@ -58,6 +59,7 @@ class CourseTeamAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         ("Team Information", {"fields": ("course", "user", "status")}),
         ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
     )
+
 
 @admin.register(Course)
 class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
@@ -582,7 +584,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "referer_name": row.get("معرف", None) or "",
                                 "status": row.get("وضعیت", None),
                                 "tuition": float(row.get("مبلغ نهایی", 0) or 0) * currency_to_toman_multiplier,
-                                "registration_date": timezone.now(),
+                                "registration_date": get_jdatetime_now_with_timezone(),
                             }
                         )
                     new_logs, made_users, made_registration, bad_name = self.add_and_register_users(

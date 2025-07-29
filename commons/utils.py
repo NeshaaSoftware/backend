@@ -1,5 +1,8 @@
 import re
 
+from django.utils import timezone
+from jdatetime import datetime as jdatetime
+
 
 def convert_to_english_digit(text: str) -> str:
     persian_arabic_to_english = {
@@ -160,3 +163,7 @@ def find_and_merge_duplicate_users() -> None:
                 for user_data in users_without_phone:
                     source_user = User.objects.get(id=user_data["id"])
                     merge_user_data(source_user, target_user)
+
+
+def get_jdatetime_now_with_timezone():
+    return jdatetime.now(tz=timezone.get_current_timezone())

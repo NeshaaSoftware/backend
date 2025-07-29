@@ -1,9 +1,9 @@
-import jdatetime
 from django.contrib import admin
 from django.db import models
 from django_jalali.db import models as jmodels
 
 from commons.models import TimeStampedModel
+from commons.utils import get_jdatetime_now_with_timezone
 from users.models import User
 
 STATUS_CHOICES = [
@@ -105,7 +105,7 @@ class Registration(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="registrations")
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="registrations")
     status = models.IntegerField(choices=STATUS_CHOICES, default=1)
-    registration_date = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now)
+    registration_date = jmodels.jDateTimeField(blank=True, default=get_jdatetime_now_with_timezone)
     initial_price = models.PositiveIntegerField(default=0, help_text="تومان")
     discount = models.PositiveIntegerField(default=0, help_text="تومان")
     vat = models.PositiveIntegerField(default=0, help_text="تومان")
@@ -145,7 +145,7 @@ class Registration(TimeStampedModel):
 class Attendance(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="attendances")
     session = models.ForeignKey(CourseSession, on_delete=models.CASCADE, related_name="attendances")
-    attended_at = jmodels.jDateTimeField(blank=True, default=jdatetime.datetime.now)
+    attended_at = jmodels.jDateTimeField(blank=True, default=get_jdatetime_now_with_timezone)
 
     class Meta:
         verbose_name = "Attendance"
@@ -164,6 +164,7 @@ TEAM_STATUS_CHOICES = [
     (4, "تایید شده"),
     (5, "انصراف"),
 ]
+
 
 class CourseTeam(TimeStampedModel):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="teams")

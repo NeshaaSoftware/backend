@@ -22,6 +22,7 @@ from .models import (
     Attendance,
     Course,
     CourseSession,
+    CourseTeam,
     CourseType,
     Registration,
 )
@@ -38,6 +39,25 @@ class CourseSessionInline(admin.TabularInline):
         "location",
     ]
 
+
+class CourseTeamInline(admin.TabularInline):
+    model = CourseTeam
+    extra = 0
+    fields = ["user", "status"]
+    autocomplete_fields = ["user"]
+    readonly_fields = ["user"]
+
+@admin.register(CourseTeam)
+class CourseTeamAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+    list_display = ["course", "user", "status", "_created_at", "_updated_at"]
+    search_fields = ["user__first_name", "user__last_name", "course__course_name"]
+    list_filter = ["status"]
+    readonly_fields = ["_created_at", "_updated_at"]
+    autocomplete_fields = ["user", "course"]
+    fieldsets = (
+        ("Team Information", {"fields": ("course", "user", "status")}),
+        ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
+    )
 
 @admin.register(Course)
 class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
@@ -56,7 +76,7 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
     ]
     search_fields = ["course_type__name_fa", "number", "course_name"]
     readonly_fields = ["_created_at", "_updated_at"]
-    inlines = [CourseSessionInline]
+    inlines = [CourseTeamInline, CourseSessionInline]
     list_select_related = True
     ordering = ["-id"]
     autocomplete_fields = ["instructors", "supporting_users", "managing_users"]

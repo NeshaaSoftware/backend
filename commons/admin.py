@@ -66,11 +66,11 @@ class DetailedLogAdminMixin:
             self.form_changed_values = self._get_field_values(obj)
         super().save_model(request, obj, form, change)
 
-    def log_addition(self, request, obj, message):
-        new_values = self._get_field_values(obj)
-        return self._create_detailed_log(request, obj, ADDITION, message, old_values={}, changed_values=new_values)
+    def log_addition(self, request, object, message):
+        new_values = self._get_field_values(object)
+        return self._create_detailed_log(request, object, ADDITION, message, old_values={}, changed_values=new_values)
 
-    def log_change(self, request, obj, message):
+    def log_change(self, request, object, message):
         from django.contrib.admin.models import CHANGE
 
         # self.custom_new_values = {f.name: getattr(object, f.name) for f in object._meta.fields}
@@ -83,9 +83,9 @@ class DetailedLogAdminMixin:
 
         old_values = getattr(self, "custom_old_values", {})
         changed_values = getattr(self, "form_changed_values", {})
-        return self._create_detailed_log(request, obj, CHANGE, message, old_values, changed_values)
+        return self._create_detailed_log(request, object, CHANGE, message, old_values, changed_values)
 
-    def log_deletion(self, request, obj, object_repr):
+    def log_deletion(self, request, object, object_repr):
         import warnings
 
         from django.contrib.admin.models import DELETION
@@ -103,8 +103,8 @@ class DetailedLogAdminMixin:
             stacklevel=2,
         )
 
-        old_values = self._get_field_values(obj)
-        return self._create_detailed_log(request, obj, DELETION, "", old_values, {})
+        old_values = self._get_field_values(object)
+        return self._create_detailed_log(request, object, DELETION, "", old_values, {})
 
     def log_deletions(self, request, queryset):
         import warnings

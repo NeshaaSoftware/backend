@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from commons.admin import DetailedLogAdminMixin
+from courses.admin import CourseTeamInline
 
 from .models import CrmLog, CrmUser, CrmUserLabel, Organization, User
 
@@ -17,6 +18,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
     search_fields = ["username", "first_name", "last_name", "phone_number", "telegram_id"]
     readonly_fields = ["_created_at", "_updated_at", "date_joined", "last_login"]
     ordering = ["-id"]
+    inlines = [CourseTeamInline]
     autocomplete_fields = ["referer", "main_user"]
     fieldsets = (
         (None, {"fields": ("username", "password")}),

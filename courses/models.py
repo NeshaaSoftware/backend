@@ -155,3 +155,24 @@ class Attendance(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.full_name or self.user.phone_number} - {self.session.session_name}"
+
+
+TEAM_STATUS_CHOICES = [
+    (1, "اعلام شوق"),
+    (2, "گفت‌وگو انجام شد"),
+    (3, "رد شده"),
+    (4, "تایید شده"),
+    (5, "انصراف"),
+]
+
+class CourseTeam(TimeStampedModel):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="teams")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="course_teams")
+    status = models.IntegerField(choices=TEAM_STATUS_CHOICES, default=1)
+
+    class Meta:
+        unique_together = ["course", "user"]
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.user.full_name or self.user.phone_number} - {self.course.course_name})"

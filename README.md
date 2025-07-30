@@ -21,6 +21,23 @@ backend/
 └── Dockerfile        # Docker support
 ```
 
+## System Requirements
+
+Before setting up the project, install the required system dependencies:
+
+### Ubuntu/Debian:
+```bash
+sudo apt-get install pkg-config python3-dev default-libmysqlclient-dev build-essential
+```
+
+### CentOS/RHEL/Fedora:
+```bash
+sudo yum install pkgconfig python3-devel mysql-devel gcc
+# or for newer versions:
+sudo dnf install pkgconfig python3-devel mysql-devel gcc
+```
+
+
 ## Environment Setup
 
 Settings are modular and selected via the `DJANGO_ENV` environment variable:

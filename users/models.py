@@ -165,7 +165,7 @@ class CrmLog(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
     action = models.IntegerField(choices=CRM_LOG_ACTION_CHOICES, default=1, db_index=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="crm_logs")
-    date = jmodels.jDateTimeField(blank=True, default=get_jdatetime_now_with_timezone, db_index=True)
+    date = jmodels.jDateTimeField(blank=True, db_index=True)
 
     class Meta:
         ordering = ["-date"]

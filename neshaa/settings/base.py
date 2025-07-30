@@ -82,7 +82,7 @@ LANGUAGE_CODE = "en-us"
 LANGUAGES = [
     ("en", "English"),
 ]
-USE_I18N = False
+USE_I18N = True
 USE_TZ = True
 TIME_ZONE = "Asia/Tehran"
 USE_L10N = True

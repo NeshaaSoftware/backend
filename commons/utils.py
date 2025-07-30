@@ -39,8 +39,7 @@ def normalize_phone(phone: str) -> str | None:
         return None
 
     phone = convert_to_english_digit(str(phone).strip())
-
-    # Handle different Iranian phone number formats
+    
     if len(phone) == 11 and phone.startswith("09"):
         return "+98" + phone[1:]
     elif len(phone) == 10 and phone.startswith("9"):

@@ -161,7 +161,7 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
                 extra_context["show_export_registrations"] = True
                 export_url = reverse("admin:courses_course_export_registrations", args=[object_id])
                 extra_context["export_button"] = format_html(
-                    '<a class="submit-button" href="{}">Export Registrations</a>', export_url
+                    <a class="button" href="{}" style="display:inline-block;">Export Registrations</a>', export_url
                 )
                 register_url = reverse("admin:courses_course_fast_register", args=[object_id])
                 extra_context["fast_register_button"] = format_html(

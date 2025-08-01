@@ -1,16 +1,22 @@
+from httpx import request
+import pandas as pd
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
-from django.contrib import admin
 from django.conf import settings
+from django.contrib import admin, messages
+from django.http import HttpResponse
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django.urls import reverse
+from django.shortcuts import redirect, render
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
 
 from commons.admin import DetailedLogAdminMixin
+from commons.utils import get_jdatetime_now_with_timezone, normalize_phone
 from courses.admin import CourseTeamInline
 
 from .models import CrmLog, CrmUser, CrmUserLabel, Organization, User
+from .permissions import ManagingGroupPermissionMixin, requires_managing_group_permission
 
 
 @admin.register(User)
@@ -110,7 +116,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
             user = self.model.objects.get(pk=object_id)
             url = reverse("admin:users_crmuser_change", args=[user._crm_user.id])
             extra_context["crm_user_button"] = format_html(
-                '<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url
+                '<a class="submit-button info" href="{}">Go to CRM User</a>', url
             )
         except Exception:
             extra_context["crm_user_button"] = None
@@ -200,11 +206,161 @@ class CrmUserAdminForm(forms.ModelForm):
         return instance
 
 
+class CrmUserLabelSetForm(forms.Form):
+    excel_file = forms.FileField(
+        label="labeling excel file contain <first name> <last name> <user phone> <support phone>", required=True
+    )
+
+
 @admin.register(CrmUserLabel)
-class CrmUserLabelAdmin(admin.ModelAdmin):
+class CrmUserLabelAdmin(ManagingGroupPermissionMixin, admin.ModelAdmin):
     list_display = ("id", "name")
     search_fields = ("name",)
     ordering = ["id"]
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        try:
+            if self.has_managing_group_permission(request):
+                extra_context["show_set_crm"] = True
+                set_crm_url = reverse("admin:user_set_crm_view", args=[object_id])
+                extra_context["set_crm_button"] = format_html(
+                    '<a class="submit-button info" href="{}">Set CRM Users</a>', set_crm_url
+                )
+                extra_context["show_export_crms"] = True
+                export_url = reverse("admin:user_export_crm_view", args=[object_id])
+                extra_context["export_button"] = format_html(
+                    '<a class="submit-button" href="{}">Export CRMs</a>', export_url
+                )
+        except CrmUserLabel.DoesNotExist:
+            pass
+
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<int:label_id>/set-crm/",
+                self.admin_site.admin_view(self.set_crm_view),
+                name="user_set_crm_view",
+            ),
+            path(
+                "<int:label_id>/export-crms/",
+                self.admin_site.admin_view(self.export_crms),
+                name="user_export_crm_view",
+            ),
+        ]
+        return custom_urls + urls
+
+    @requires_managing_group_permission
+    def export_crms(self, request, label_id):
+        try:
+            crm_label = CrmUserLabel.objects.get(pk=label_id)
+            crms = CrmUser.objects.filter(crm_label=crm_label).select_related("user")
+            data = []
+            for crm in crms:
+                data.append(
+                    {
+                        "first name": crm.user.first_name,
+                        "last name": crm.user.last_name,
+                        "phone": getattr(crm.user, "phone_number", ""),
+                        "supporting user": crm.supporting_user.phone_number if crm.supporting_user else None,
+                        "supporting user name": f"{crm.supporting_user.first_name} {crm.supporting_user.last_name}" if crm.supporting_user else "",
+                    }
+                )
+            df = pd.DataFrame(data)
+            response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            response["Content-Disposition"] = f'attachment; filename="{crm_label.name}.xlsx"'
+            from io import BytesIO
+            excel_buffer = BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="data")
+            excel_buffer.seek(0)
+            response.write(excel_buffer.getvalue())
+
+            messages.success(request, f"فایل اکسل یوزرهای  {crm_label.name} با موفقیت ایجاد شد.")
+            return response
+
+        except CrmUserLabel.DoesNotExist:
+            messages.error(request, "برچسب مورد نظر یافت نشد.")
+            return redirect("..")
+        except Exception as e:
+            messages.error(request, f"خطا در ایجاد فایل اکسل: {e!s}")
+            return redirect("..")
+    
+    @requires_managing_group_permission
+    def set_crm_view(self, request, label_id):
+        if request.method == "POST":
+            crm_label = CrmUserLabel.objects.get(pk=label_id)
+            form = CrmUserLabelSetForm(request.POST, request.FILES)
+            if form.is_valid():
+                excel_file = request.FILES["excel_file"]
+                try:
+                    df = pd.read_excel(
+                        excel_file, dtype={"first name": str, "last name": str, "user phone": str, "support phone": str}
+                    )
+                    df = df.dropna(how="all", subset=["user phone"])
+                except Exception as e:
+                    self.message_user(request, f"Error reading excel file: {e}", level="error")
+                    return redirect(request.path)
+                if not request.POST.get("confirm_preview"):
+                    try:
+                        preview_data = df.loc[:, ["first name", "last name", "user phone", "support phone"]]
+                        preview_html = preview_data.to_html(index=False, classes="table table-bordered table-sm")
+                        return render(
+                            request,
+                            "admin/users/crmuserlabel/set_crm.html",
+                            {
+                                "form": form,
+                                "preview_html": preview_html,
+                                "show_confirm": True,
+                            },
+                        )
+                    except Exception as e:
+                        self.message_user(request, f"Error generating preview: {e}", level="error")
+                        return redirect(request.path)
+                support_map = {}
+                phones = []
+                for _, row in df.iterrows():
+                    user_phone = normalize_phone(row["user phone"])
+                    first_name = row.get("first name", "").strip()
+                    last_name = row.get("last name", "").strip()
+                    support_phone = normalize_phone(row["support phone"])
+                    support_map[user_phone] = {"support": support_phone, "first_name": first_name, "last_name": last_name}
+                    phones.append(user_phone)
+                    phones.append(support_phone)
+                phones = list(set(phones))
+                crm_map = {
+                    c.user.phone_number: c for c in CrmUser.objects.filter(user__phone_number__in=phones).select_related("user")
+                }
+                for user_phone, data in support_map.items():
+                    if crm_map.get(user_phone, None) is None:
+                        user = User.objects.create(
+                            username=user_phone,
+                            first_name=data["first_name"],
+                            last_name=data["last_name"],
+                            phone_number=user_phone,
+                        )
+                        crm_user = user._crm_user
+                        crm_map[user_phone] = crm_user
+                    else:
+                        crm_user = crm_map.get(user_phone)
+                    if str(data.get("support", None)) not in ["", "None", "Nan", "NaN", "nan"]:
+                        crm_support = crm_map.get(data.get("support", None))
+                        if crm_user.supporting_user is None:
+                            crm_user.supporting_user = crm_support.user
+                            crm_user.save()
+                crm_label.crm_users.add(*[crm_map.get(phone) for phone in support_map.keys()])
+                self.message_user(request, f"# {len(support_map)} updated with label {crm_label.name}")
+                return redirect("..")
+        else:
+            form = CrmUserLabelSetForm()
+        context = {
+            "form": form,
+            **self.admin_site.each_context(request),
+        }
+        return render(request, "admin/users/crmuserlabel/set_crm.html", context)
 
 
 @admin.register(CrmUser)
@@ -251,15 +407,14 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             {
                 "fields": (
                     ("supporting_user", "status"),
-                    "joined_main_group",
-                    "crm_label",
+                    ("joined_main_group", "crm_label"),
                     "last_follow_up",
                     "next_follow_up",
                     "crm_description",
                 )
             },
         ),
-        ("Timestamps", {"fields": ("_created_at", "_updated_at")}),
+        ("Timestamps", {"fields": (("_created_at", "_updated_at"),)}),
     )
 
     def get_readonly_fields(self, request, obj=None):
@@ -268,17 +423,31 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
         return (*self.readonly_fields, "supporting_user")
 
     def save_formset(self, request, form, formset, change):
-        for form in formset.forms:
-            if hasattr(form, "instance") and isinstance(form.instance, CrmLog):
-                if form.has_changed():
-                    form.instance.user = request.user
+        crm_user = form.instance
+        last_follow_up_updated = False
+
+        for form_instance in formset.forms:
+            if hasattr(form_instance, "instance") and isinstance(form_instance.instance, CrmLog):
+                if form_instance.has_changed():
+                    form_instance.instance.user = request.user
+                if form_instance.instance.date is None:
+                    form_instance.instance.date = get_jdatetime_now_with_timezone()
+                if form_instance.instance.date and (
+                    not crm_user.last_follow_up or form_instance.instance.date > crm_user.last_follow_up
+                ):
+                    crm_user.last_follow_up = form_instance.instance.date
+                    last_follow_up_updated = True
+
         super().save_formset(request, form, formset, change)
+
+        if last_follow_up_updated:
+            crm_user.save()
 
     def get_queryset(self, request):
         qs = super().get_queryset(request).select_related("user")
-        if not request.user.is_superuser:
-            return qs.filter(supporting_user=request.user)
-        return qs
+        if request.user.is_superuser or request.user.groups.filter(name=settings.MANAGING_GROUP_NAME).exists():
+            return qs
+        return qs.filter(supporting_user=request.user)
 
     @admin.display(description="Registered Courses")
     def registered_courses_list(self, obj):

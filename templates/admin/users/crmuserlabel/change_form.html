@@ -8,13 +8,13 @@
 {% endblock %}
 
 {% block object-tools-items %}
-    {% if show_export_registrations %}
-    <li>
+    {% if show_set_crm %}
+        <li>
+        {{ set_crm_button|safe }}
+        </li>
+        <li>
         {{ export_button|safe }}
-    </li>
-    <li>
-        {{ fast_register_button|safe }}
-    </li>
-    {% endif %}
+        </li>
+    {% endif %}    
     {{ block.super }}
 {% endblock %}

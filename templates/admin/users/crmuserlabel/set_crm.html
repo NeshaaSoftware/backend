@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block extrahead %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/custom-buttons.css' %}">
+{% endblock %}
+
+{% block content %}
+<h2>Upload Registration Excel</h2>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.media }}
+  {{ form.as_p }}
+  {% if preview_html %}
+    {% if show_confirm %}
+      <button type="submit" class="submit-button">Continue and Process</button>
+      <a href="." class="cancel-button">Cancel</a>
+    {% endif %}
+    <h3>Preview</h3>
+    <div style="overflow-x:auto;">{{ preview_html|safe }}</div>
+    <input type="hidden" name="confirm_preview" value="1" />
+  {% else %}
+    <button type="submit" class="submit-button info">Preview</button>
+  {% endif %}
+</form>
+<a href="../" class="cancel-button" style="text-decoration: none;">Back to Label</a>
+{% endblock %}

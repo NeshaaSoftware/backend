@@ -12,7 +12,7 @@ from .models import CrmLog
 @receiver(pre_save, sender=CrmLog)
 def crm_log_pre_save(sender, instance, **kwargs):
     if instance.date is None:
-        instance.date = get_jdatetime_now_with_timezone().replace(microsecond=0)
+        instance.date = get_jdatetime_now_with_timezone()
     if not instance.pk:
         return
     old_instance = CrmLog.objects.get(pk=instance.pk)

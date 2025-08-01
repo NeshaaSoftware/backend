@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from .models import CourseTransaction
@@ -10,6 +10,7 @@ def course_transaction_post_save(sender, instance, **kwargs):
         return
     if instance.registration:
         instance.registration.save()
+
 
 @receiver(post_delete, sender=CourseTransaction)
 def course_transaction_post_delete(sender, instance, **kwargs):

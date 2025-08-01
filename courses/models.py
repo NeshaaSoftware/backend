@@ -1,4 +1,3 @@
-from django.contrib import admin
 from django.db import models
 from django_jalali.db import models as jmodels
 
@@ -144,11 +143,11 @@ class Registration(TimeStampedModel):
     def __str__(self):
         return f"{self.user} - {self.course} ({self.status_display})"
 
-
     def update_paid_amount(self, commit=True):
         self.paid_amount = self._paid_amount()
         if commit:
             self.save(update_fields=["paid_amount"])
+
 
 class Attendance(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="attendances")

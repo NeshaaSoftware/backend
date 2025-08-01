@@ -159,13 +159,13 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
             course = Course.objects.get(pk=object_id)
             if self.has_course_manage_permission(request, course):
                 extra_context["show_export_registrations"] = True
-                export_url = reverse("admin:courses_course_export_registrations", args=[object_id])
+                export_url = reverse("admin:courses_course_export-registrations", args=[object_id])
                 extra_context["export_button"] = format_html(
-                    '<a class="button" href="{}" style="display:inline-block;">export registrations</a>', export_url
+                    '<a class="submit-button" href="{}">Export Registrations</a>', export_url
                 )
                 register_url = reverse("admin:course-fast-register", args=[object_id])
                 extra_context["fast_register_button"] = format_html(
-                    '<a class="button" href="{}" style="display:inline-block;">fast register</a>', register_url
+                    '<a class="submit-button info" href="{}">Fast Register</a>', register_url
                 )
         except Course.DoesNotExist:
             pass
@@ -431,27 +431,26 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
     change_list_template = "admin/courses/registration/change_list.html"
     inlines = [CourseTransactionInline]
 
-    
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
         upload_url = reverse("admin:registration-upload-excel")
         extra_context["upload_excel_button"] = format_html(
-            '<a class="button" href="{}" style="display:inline-block;">Upload Excel</a>', upload_url
+            '<a class="submit-button info" href="{}">Upload Excel</a>', upload_url
         )
         sazito_url = reverse("admin:registration-upload-sazito")
         extra_context["upload_sazito_button"] = format_html(
-            '<a class="button" href="{}" style="display:inline-block;">Upload Sazito</a>', sazito_url
+            '<a class="submit-button info" href="{}">Upload Sazito</a>', sazito_url
         )
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path("upload-excel/", self.admin_site.admin_view(self.upload_excel), name="registration-upload-excel"),
-            path("upload-sazito/", self.admin_site.admin_view(self.upload_sazito_file), name="registration-upload-sazito"),
+            path("upload-excel/", self.admin_site.admin_view(self.upload_excel), name="registration_upload_excel"),
+            path("upload-sazito/", self.admin_site.admin_view(self.upload_sazito_file), name="registration_upload_sazito"),
             path(
-                "<int:course_id>/export_registrations/",
+                "<int:course_id>/export-registrations/",
                 self.admin_site.admin_view(self.export_registrations),
                 name="courses_course_export_registrations",
             ),
@@ -466,10 +465,10 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
             if request.user.is_superuser:
                 extra_context["user_button"] = format_html(
-                    '<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user
+                    '<a class="submit-button info" href="{}">Go to User</a>', url_user
                 )
             extra_context["crm_user_button"] = format_html(
-                '<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm
+                '<a class="submit-button info" href="{}">Go to CRM User</a>', url_crm
             )
         except Exception:
             extra_context["crm_user_button"] = None

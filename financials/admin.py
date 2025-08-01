@@ -254,7 +254,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 course_transactions_url = reverse("admin:financials_coursetransaction_changelist")
                 course_transactions_url += f"?transaction__id__exact={transaction.id}"
                 extra_context["go_to_course_transactions_button"] = format_html(
-                    '<a class="button" href="{}" style="display:inline-block; margin-left: 10px;">Go to Course Transactions</a>',
+                    '<a class="submit-button info" href="{}">Go to Course Transactions</a>',
                     course_transactions_url,
                 )
         except Exception:
@@ -526,7 +526,7 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             if course_transaction and not course_transaction.transaction:
                 url = reverse("admin:make_course_transaction", args=[object_id])
                 extra_context["make_transaction_button"] = format_html(
-                    '<a class="button" href="{}" style="display:inline-block;">Make Transaction</a>', url
+                    '<a class="submit-button" href="{}">Make Transaction</a>', url
                 )
         except Exception:
             messages.error(request, "Error retrieving CourseTransaction.")

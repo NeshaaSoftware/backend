@@ -1,8 +1,8 @@
+from django.conf import settings
 from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
 from financials.models import FinancialAccount
-from django.conf import settings
 
 
 class Command(BaseCommand):

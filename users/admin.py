@@ -1,6 +1,7 @@
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.contrib import admin
+from django.conf import settings
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.urls import reverse
 from django.utils.html import format_html
@@ -96,7 +97,9 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         if not request.user.is_superuser:
             fieldsets = [fs for fs in fieldsets if fs[0] != "Permissions"]
             fieldsets = [
-                (title, {**opts, "fields": tuple(f for f in opts["fields"] if f != "password")}) if opts.get("fields") else (title, opts)
+                (title, {**opts, "fields": tuple(f for f in opts["fields"] if f != "password")})
+                if opts.get("fields")
+                else (title, opts)
                 for title, opts in fieldsets
             ]
         return fieldsets
@@ -260,9 +263,9 @@ class CrmUserAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     )
 
     def get_readonly_fields(self, request, obj=None):
-        if not request.user.is_superuser:
-            return (*self.readonly_fields, "supporting_user")
-        return super().get_readonly_fields(request, obj)
+        if request.user.is_superuser or request.user.groups.filter(name=settings.MANAGING_GROUP_NAME).exists():
+            return super().get_readonly_fields(request, obj)
+        return (*self.readonly_fields, "supporting_user")
 
     def save_formset(self, request, form, formset, change):
         for form in formset.forms:

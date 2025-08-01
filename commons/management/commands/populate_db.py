@@ -31,7 +31,9 @@ class Command(BaseCommand):
 
     def create_superuser(self):
         if not User.objects.filter(is_superuser=True).exists():
-            User.objects.create_superuser(username="admin", phone_number="+989120000000", email="admin@example.com", password="adminpass")
+            User.objects.create_superuser(
+                username="admin", phone_number="+989120000000", email="admin@example.com", password="adminpass"
+            )
             self.stdout.write(self.style.SUCCESS("Superuser created"))
 
     def create_users(self, num_users):
@@ -55,7 +57,9 @@ class Command(BaseCommand):
         done_course_types = set(CourseType.objects.values_list("id", flat=True))
         course_types_data = {1: ("L", "پیش‌وایی"), 2: ("M", "مواجهه"), 3: ("A", "دستاورد"), 4: ("P", "پیله")}
         course_types = [
-            CourseType(id=i, name=name, name_fa=name_fa) for i, (name, name_fa) in course_types_data.items() if i not in done_course_types
+            CourseType(id=i, name=name, name_fa=name_fa)
+            for i, (name, name_fa) in course_types_data.items()
+            if i not in done_course_types
         ]
         if course_types:
             CourseType.objects.bulk_create(course_types)

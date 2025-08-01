@@ -234,7 +234,8 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
                     if make_transaction and paid_amount > 0:
                         try:
                             financial_account = (
-                                FinancialAccount.objects.filter(name__icontains="cash").first() or FinancialAccount.objects.first()
+                                FinancialAccount.objects.filter(name__icontains="cash").first()
+                                or FinancialAccount.objects.first()
                             )
 
                             if financial_account:
@@ -284,7 +285,9 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path("<int:course_id>/fast-register/", self.admin_site.admin_view(self.register_user_view), name="course-fast-register"),
+            path(
+                "<int:course_id>/fast-register/", self.admin_site.admin_view(self.register_user_view), name="course-fast-register"
+            ),
         ]
         return custom_urls + urls
 
@@ -364,9 +367,11 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         "user",
         "course",
         "status",
+        "joined_group",
         "supporting_user",
         "payment_status",
         "tuition",
+        "paid_amount",
         "next_payment_date",
         "registration_date",
         "description",
@@ -377,6 +382,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
     list_filter = [
         "status",
         "payment_status",
+        "joined_group",
         ("registration_date", JDateFieldListFilter),
         ("course", DALFRelatedFieldAjax),
     ]
@@ -396,13 +402,18 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
     fieldsets = (
         (
             "Registration Information",
-            {"fields": ("user", "course", "status", "registration_date", "supporting_user")},
+            {
+                "fields": (
+                    ("user", "course", "registration_date"),
+                    ("supporting_user", "joined_group"),
+                    ("status", "payment_status"),
+                )
+            },
         ),
         (
             "Payment Information",
             {
                 "fields": (
-                    "payment_status",
                     ("initial_price", "discount", "vat"),
                     ("tuition", "paid_amount"),
                     "next_payment_date",
@@ -420,10 +431,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
     change_list_template = "admin/courses/registration/change_list.html"
     inlines = [CourseTransactionInline]
 
-    def paid_amount(self, obj):
-        amount = obj.paid_amount()
-        return f"{amount:,}" if amount else "0"
-
+    
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
@@ -456,7 +464,10 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             registration = self.model.objects.get(pk=object_id)
             url_user = reverse("admin:users_user_change", args=[registration.user.id])
             url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
-            extra_context["user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user)
+            if request.user.is_superuser:
+                extra_context["user_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user
+                )
             extra_context["crm_user_button"] = format_html(
                 '<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm
             )
@@ -539,7 +550,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         from financials.models import INCOME_CATEGORY_REGISTRATION, CourseTransaction
         from users.models import User
 
-        users_dic = {user[1]: user for user in User.objects.all().values_list("id", "username", "first_name", "last_name", "phone_number")}
+        users_dic = {
+            user[1]: user for user in User.objects.all().values_list("id", "username", "first_name", "last_name", "phone_number")
+        }
         users_dup_check = {f"{u[2]}{u[3]}".replace(" ", ""): u for u in users_dic.values() if u[3] not in [None, ""]}
 
         registration_dic = {r[0]: r[1] for r in Registration.objects.filter(course=course).values_list("user_id", "id")}
@@ -801,7 +814,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         try:
             course = Course.objects.get(id=course_id)
             registrations = (
-                Registration.objects.filter(course=course).select_related("user", "supporting_user").order_by("-registration_date")
+                Registration.objects.filter(course=course)
+                .select_related("user", "supporting_user")
+                .order_by("-registration_date")
             )
             data = []
             for reg in registrations:
@@ -820,7 +835,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                         "وضعیت پرداخت": reg.get_payment_status_display,
                         "نوع پرداخت": reg.get_payment_type_display,
                         "تاریخ پرداخت بعدی": reg.next_payment_date.strftime("%Y/%m/%d") if reg.next_payment_date else "",
-                        "پشتیبان": f"{reg.supporting_user.first_name} {reg.supporting_user.last_name}" if reg.supporting_user else "",
+                        "پشتیبان": f"{reg.supporting_user.first_name} {reg.supporting_user.last_name}"
+                        if reg.supporting_user
+                        else "",
                         "توضیحات": reg.description or "",
                         "توضیحات پرداخت": reg.payment_description or "",
                     }

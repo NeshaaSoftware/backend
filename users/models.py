@@ -69,7 +69,9 @@ class User(TimeStampedModel, AbstractUser):
     country = models.CharField(max_length=50, blank=True, default="")
     city = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, null=True)
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True, related_name="organization_users")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True, related_name="organization_users"
+    )
     main_user = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="other_users")
 
     USERNAME_FIELD = "username"
@@ -250,7 +252,8 @@ class SMSLogManager(models.Manager):
     def get_sms_lines(self):
         if self.SMS_LINES is None:
             self.SMS_LINES = {
-                sms_line.line_number: ElanakSMSHandler(sms_line) for sms_line in SMSLine.objects.filter(provider=ELANAK_SMS_PROVIDER)
+                sms_line.line_number: ElanakSMSHandler(sms_line)
+                for sms_line in SMSLine.objects.filter(provider=ELANAK_SMS_PROVIDER)
             }
         return self.SMS_LINES
 

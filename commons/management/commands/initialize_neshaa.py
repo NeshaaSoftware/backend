@@ -1,6 +1,8 @@
 from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
+
 from financials.models import FinancialAccount
+from django.conf import settings
 
 
 class Command(BaseCommand):
@@ -8,8 +10,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         FinancialAccount.objects.get_or_create(name="پی‌پینگ")
-        reg, _ = Group.objects.get_or_create(name="registration")
-        sup, _ = Group.objects.get_or_create(name="supporting")
+        reg, _ = Group.objects.get_or_create(name=settings.REGISTRATION_GROUP_NAME)
+        sup, _ = Group.objects.get_or_create(name=settings.SUPPORT_GROUP_NAME)
         reg_permission_code = [
             "view_registration",
             "change_registration",

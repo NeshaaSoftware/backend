@@ -196,3 +196,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1",
     "http://127.0.0.1:8000",
 ]
+
+# Neshaa Structure
+REGISTRATION_GROUP_NAME = "registration"
+SUPPORT_GROUP_NAME = "supporting"
+MANAGING_GROUP_NAME = "managing"

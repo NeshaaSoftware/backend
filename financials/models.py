@@ -161,7 +161,9 @@ class Transaction(TimeStampedModel):
     name = models.CharField(max_length=100, blank=True, default="")
     user_account = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="transactions")
     tracking_code = models.CharField(max_length=100, blank=True, default="", db_index=True)
-    entry_user = models.ForeignKey("users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="entry_transactions")
+    entry_user = models.ForeignKey(
+        "users.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="entry_transactions"
+    )
     description = models.TextField(blank=True, default="")
 
     def save(self, *args, **kwargs) -> None:
@@ -172,9 +174,7 @@ class Transaction(TimeStampedModel):
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return (
-            f"{self.id}-{self.amount}-{self.account.name}-{self.get_transaction_type_display()}-{self.get_transaction_category_display()}"
-        )
+        return f"{self.id}-{self.amount}-{self.account.name}-{self.get_transaction_type_display()}-{self.get_transaction_category_display()}"
 
 
 COST_CATEGORY_HOTEL = 1
@@ -214,17 +214,25 @@ class CourseTransaction(TimeStampedModel):
     transaction_type = models.IntegerField(choices=TRANSACTION_TYPE_CHOICES, default=1)
     transaction_category = models.IntegerField(choices=COURSE_TRANSACTION_CATEGORY_CHOICES, default=10)
     financial_account = models.ForeignKey(FinancialAccount, on_delete=models.CASCADE, related_name="course_transactions")
-    transaction = models.ForeignKey("Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions")
+    transaction = models.ForeignKey(
+        "Transaction", blank=True, null=True, on_delete=models.SET_NULL, related_name="course_transactions"
+    )
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="transactions")
-    registration = models.ForeignKey("courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True)
+    registration = models.ForeignKey(
+        "courses.Registration", on_delete=models.CASCADE, related_name="transactions", null=True, blank=True
+    )
     amount = models.PositiveIntegerField(help_text="تومان")
     fee = models.PositiveIntegerField(default=0, help_text="تومان")
     net_amount = models.PositiveIntegerField(help_text="تومان")
     customer_name = models.CharField(max_length=100, blank=True, default="")
-    user_account = models.ForeignKey("users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions")
+    user_account = models.ForeignKey(
+        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions"
+    )
     transaction_date = jmodels.jDateTimeField(default=get_jdatetime_now_with_timezone, db_index=True, help_text="تاریخ تراکنش")
     tracking_code = models.CharField(max_length=100, blank=True, default="")
-    entry_user = models.ForeignKey("users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry")
+    entry_user = models.ForeignKey(
+        "users.User", on_delete=models.SET_NULL, null=True, blank=True, related_name="course_transactions_entry"
+    )
     description = models.TextField(blank=True, default="")
 
     def save(self, *args, **kwargs) -> None:

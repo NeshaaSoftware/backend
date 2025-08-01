@@ -119,10 +119,14 @@ class Registration(TimeStampedModel):
     )
     payment_status = models.IntegerField(choices=PAYMENT_STATUS_CHOICES, default=3)
     payment_type = models.IntegerField(choices=PAYMENT_TYPE_CHOICES, default=1)
+    paid_amount = models.PositiveIntegerField(default=0, help_text="تومان")
     next_payment_date = jmodels.jDateTimeField(blank=True, null=True)
-    supporting_user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name="supported_registrations", blank=True, null=True)
+    supporting_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, related_name="supported_registrations", blank=True, null=True
+    )
     description = models.TextField(blank=True, null=True)
     payment_description = models.TextField(blank=True, null=True)
+    joined_group = models.BooleanField(default=False, help_text="عضویت در گروه دوره")
 
     class Meta:
         ordering = ["-registration_date"]
@@ -132,8 +136,7 @@ class Registration(TimeStampedModel):
     def status_display(self):
         return dict(STATUS_CHOICES)[self.status]
 
-    @admin.display(description="Paid Amount")
-    def paid_amount(self):
+    def _paid_amount(self):
         return (self.transactions.filter(transaction_type=1).aggregate(total=models.Sum("amount"))["total"] or 0) - (
             self.transactions.filter(transaction_type=2).aggregate(total=models.Sum("amount"))["total"] or 0
         )
@@ -141,6 +144,11 @@ class Registration(TimeStampedModel):
     def __str__(self):
         return f"{self.user} - {self.course} ({self.status_display})"
 
+
+    def update_paid_amount(self, commit=True):
+        self.paid_amount = self._paid_amount()
+        if commit:
+            self.save(update_fields=["paid_amount"])
 
 class Attendance(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="attendances")

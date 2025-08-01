@@ -526,7 +526,7 @@ class CourseTransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
             if course_transaction and not course_transaction.transaction:
                 url = reverse("admin:make_course_transaction", args=[object_id])
                 extra_context["make_transaction_button"] = format_html(
-                    <a class="button" href="{}" style="display:inline-block;">Make Transaction</a>', url
+                    '<a class="button" href="{}" style="display:inline-block;">Make Transaction</a>', url
                 )
         except Exception:
             messages.error(request, "Error retrieving CourseTransaction.")

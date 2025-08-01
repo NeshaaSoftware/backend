@@ -161,7 +161,7 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
                 extra_context["show_export_registrations"] = True
                 export_url = reverse("admin:courses_course_export_registrations", args=[object_id])
                 extra_context["export_button"] = format_html(
-                    <a class="button" href="{}" style="display:inline-block;">Export Registrations</a>', export_url
+                    '<a class="button" href="{}" style="display:inline-block;">Export Registrations</a>', export_url
                 )
                 register_url = reverse("admin:courses_course_fast_register", args=[object_id])
                 extra_context["fast_register_button"] = format_html(
@@ -286,7 +286,9 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path(
-                "<int:course_id>/fast-register/", self.admin_site.admin_view(self.register_user_view), name="courses_course_fast_register"
+                "<int:course_id>/fast-register/",
+                self.admin_site.admin_view(self.register_user_view),
+                name="courses_course_fast_register",
             ),
         ]
         return custom_urls + urls
@@ -435,7 +437,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         if extra_context is None:
             extra_context = {}
         upload_url = reverse("admin:courses_registration_upload_excel")
-        extra_context["upload_excel_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Upload Excel</a>', upload_url)
+        extra_context["upload_excel_button"] = format_html(
+            '<a class="button" href="{}" style="display:inline-block;">Upload Excel</a>', upload_url
+        )
         sazito_url = reverse("admin:courses_registration_upload_sazito")
         extra_context["upload_sazito_button"] = format_html(
             '<a class="button" href="{}" style="display:inline-block;">Upload Sazito</a>', sazito_url
@@ -445,8 +449,16 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path("registration-upload-excel/", self.admin_site.admin_view(self.upload_excel), name="courses_registration_upload_excel"),
-            path("registration-upload-sazito/", self.admin_site.admin_view(self.upload_sazito_file), name="courses_registration_upload_sazito"),
+            path(
+                "registration-upload-excel/",
+                self.admin_site.admin_view(self.upload_excel),
+                name="courses_registration_upload_excel",
+            ),
+            path(
+                "registration-upload-sazito/",
+                self.admin_site.admin_view(self.upload_sazito_file),
+                name="courses_registration_upload_sazito",
+            ),
             path(
                 "<int:course_id>/export-registrations/",
                 self.admin_site.admin_view(self.export_registrations),
@@ -462,8 +474,12 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             url_user = reverse("admin:users_user_change", args=[registration.user.id])
             url_crm = reverse("admin:users_crmuser_change", args=[registration.user._crm_user.id])
             if request.user.is_superuser:
-                extra_context["user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user)
-            extra_context["crm_user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm)
+                extra_context["user_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block;">Go to User</a>', url_user
+                )
+            extra_context["crm_user_button"] = format_html(
+                '<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url_crm
+            )
         except Exception:
             extra_context["crm_user_button"] = None
             extra_context["user_button"] = None

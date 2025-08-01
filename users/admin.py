@@ -114,7 +114,9 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         try:
             user = self.model.objects.get(pk=object_id)
             url = reverse("admin:users_crmuser_change", args=[user._crm_user.id])
-            extra_context["crm_user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url)
+            extra_context["crm_user_button"] = format_html(
+                '<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url
+            )
         except Exception:
             extra_context["crm_user_button"] = None
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
@@ -226,7 +228,9 @@ class CrmUserLabelAdmin(ManagingGroupPermissionMixin, admin.ModelAdmin):
                 )
                 extra_context["show_export_crms"] = True
                 export_url = reverse("admin:user_export_crm_view", args=[object_id])
-                extra_context["export_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Export CRMs</a>', export_url)
+                extra_context["export_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block;">Export CRMs</a>', export_url
+                )
         except CrmUserLabel.DoesNotExist:
             pass
 

@@ -5,6 +5,8 @@ from jdatetime import datetime as jdatetime
 
 
 def convert_to_english_digit(text: str) -> str:
+    if not text:
+        return None
     persian_arabic_to_english = {
         "۰": "0",
         "۱": "1",
@@ -39,7 +41,7 @@ def normalize_phone(phone: str) -> str | None:
         return None
 
     phone = convert_to_english_digit(str(phone).strip())
-    
+
     if len(phone) == 11 and phone.startswith("09"):
         return "+98" + phone[1:]
     elif len(phone) == 10 and phone.startswith("9"):
@@ -166,3 +168,102 @@ def find_and_merge_duplicate_users() -> None:
 
 def get_jdatetime_now_with_timezone():
     return jdatetime.now(tz=timezone.get_current_timezone())
+
+
+def create_needed_permission_groups():
+    from django.contrib.auth.models import Group, Permission
+    from django.contrib.contenttypes.models import ContentType
+
+    content_type = ContentType.objects.get_for_model(Group)
+    permissions = Permission.objects.filter(content_type=content_type)
+
+    for permission in permissions:
+        if not Group.objects.filter(name=permission.codename).exists():
+            Group.objects.create(name=permission.codename, permissions=[permission])
+
+
+def get_or_update_user(
+    first_name,
+    last_name,
+    phone_number=None,
+    profession=None,
+    education=None,
+    email=None,
+    telegram_id=None,
+    age=None,
+    more_phone_numbers=None,
+    birth_date=None,
+    national_id=None,
+    english_first_name=None,
+    english_last_name=None,
+    referrer_name=None,
+    country=None,
+    city=None,
+):
+    from users.models import User
+
+    phone_number = normalize_phone(phone_number)
+    if phone_number:
+        username = phone_number
+    else:
+        import hashlib
+
+        name_hash = hashlib.sha256(f"{first_name}{last_name}".encode()).hexdigest()[:10]
+        username = f"from_register_{name_hash}"
+    user = None
+    existing_users = None
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        existing_users = User.objects.filter(first_name=first_name, last_name=last_name).first()
+
+    if user or (existing_users and not existing_users.phone_number):
+        if user is None:
+            user = existing_users
+        user.first_name = first_name
+        user.last_name = last_name
+        user.phone_number = phone_number
+        user.profession = user.profession or profession or ""
+        user.education = make_none_empty_str(user.education or education)
+        user.email = user.email or email
+        user.telegram_id = user.telegram_id or telegram_id
+        user.age = make_none_empty_str(user.age or age)
+        user.more_phone_numbers = user.more_phone_numbers or more_phone_numbers or ""
+        user.birth_date = user.birth_date or birth_date
+        user.national_id = user.national_id or national_id or ""
+        user.english_first_name = user.english_first_name or english_first_name or ""
+        user.english_last_name = user.english_last_name or english_last_name or ""
+        user.referer_name = referrer_name or ""
+        user.country = user.country or country or ""
+        user.city = user.city or city or ""
+        user.description = user.description or ""
+        user.save()
+    else:
+        user = User.objects.create(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            phone_number=phone_number,
+            profession=profession,
+            education=make_none_empty_str(education),
+            telegram_id=telegram_id or "",
+            email=email or "",
+            national_id=national_id or "",
+            english_first_name=english_first_name or "",
+            english_last_name=english_last_name or "",
+            referer_name=referrer_name or "",
+            country=country or "",
+            city=city or "",
+            age=make_none_empty_str(age),
+            more_phone_numbers=more_phone_numbers or "",
+            birth_date=birth_date,
+            description="",
+        )
+
+    return user
+
+
+def make_none_empty_str(text):
+    if text == "":
+        return None
+    return text

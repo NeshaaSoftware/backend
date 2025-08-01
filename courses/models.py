@@ -98,7 +98,7 @@ class CourseSession(TimeStampedModel):
         ordering = ["start_date"]
 
     def __str__(self):
-        return f"{self.session_name} ({self.course})"
+        return f"{self.session_name} ({self.course.course_name})"
 
 
 class Registration(TimeStampedModel):

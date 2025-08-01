@@ -7,18 +7,25 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from django_jalali.admin.filters import JDateFieldListFilter
+from jdatetime import datetime as jdatetime
 
 from commons.admin import DetailedLogAdminMixin, DropdownFilter
 from commons.forms import FinancialNumberFormMixin
-from commons.utils import get_jdatetime_now_with_timezone
+from commons.utils import (
+    convert_to_english_digit,
+    get_jdatetime_now_with_timezone,
+    get_or_update_user,
+    make_none_empty_str,
+    normalize_phone,
+)
 from financials.admin import CourseTransactionInline
-from financials.models import FinancialAccount
+from financials.models import INCOME_CATEGORY_REGISTRATION, CourseTransaction, FinancialAccount
+from users.models import User
 
 from .models import (
-    PAYMENT_STATUS_CHOICES,
-    PAYMENT_TYPE_CHOICES,
     Attendance,
     Course,
     CourseSession,
@@ -43,7 +50,7 @@ class CourseSessionInline(admin.TabularInline):
 class CourseTeamInline(admin.TabularInline):
     model = CourseTeam
     extra = 0
-    fields = ["user", "status"]
+    fields = ["user", "status", "course"]
     autocomplete_fields = ["user"]
     readonly_fields = ["user"]
 
@@ -59,6 +66,53 @@ class CourseTeamAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         ("Team Information", {"fields": ("course", "user", "status")}),
         ("Timestamps", {"fields": ("_created_at", "_updated_at"), "classes": ("collapse",)}),
     )
+
+
+class FastRegisterForm(FinancialNumberFormMixin, forms.ModelForm):
+    first_name = User._meta.get_field("first_name").formfield()
+    last_name = User._meta.get_field("last_name").formfield()
+    phone_number = User._meta.get_field("phone_number").formfield()
+    email = User._meta.get_field("email").formfield()
+    profession = User._meta.get_field("profession").formfield()
+    education = User._meta.get_field("education").formfield()
+    telegram_id = User._meta.get_field("telegram_id").formfield()
+    age = User._meta.get_field("age").formfield()
+    financial_account = CourseTransaction._meta.get_field("financial_account").formfield()
+    tracking_code = forms.CharField(max_length=50, required=False)
+    make_transaction = forms.BooleanField(initial=False, required=False)
+    paid_amount = forms.IntegerField(initial=0, required=False)
+
+    class Meta:
+        model = Registration
+        fields = ["initial_price", "vat", "tuition", "status", "payment_status", "payment_type", "payment_description"]
+
+    def __init__(self, *args, **kwargs):
+        course = kwargs.pop("course", None)
+        super().__init__(*args, **kwargs)
+
+        # Filter financial_account to only show accounts related to the course
+        if course:
+            from django.forms import ModelChoiceField
+
+            financial_account_field = self.fields.get("financial_account")
+            if financial_account_field and isinstance(financial_account_field, ModelChoiceField):
+                financial_account_field.queryset = course.financial_accounts.all()
+
+        field_order = [
+            "first_name",
+            "last_name",
+            "phone_number",
+            "profession",
+            "education",
+            "telegram_id",
+            "age",
+            *self.Meta.fields,
+            "make_transaction",
+            "financial_account",
+            "paid_amount",
+            "tracking_code",
+        ]
+        self.fields = {field: self.fields[field] for field in field_order if field in self.fields}
 
 
 @admin.register(Course)
@@ -105,15 +159,134 @@ class CourseAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelAdmin):
             course = Course.objects.get(pk=object_id)
             if self.has_course_manage_permission(request, course):
                 extra_context["show_export_registrations"] = True
-
                 export_url = reverse("admin:courses_course_export_registrations", args=[object_id])
                 extra_context["export_button"] = format_html(
                     '<a class="button" href="{}" style="display:inline-block;">export registrations</a>', export_url
+                )
+                register_url = reverse("admin:course-fast-register", args=[object_id])
+                extra_context["fast_register_button"] = format_html(
+                    '<a class="button" href="{}" style="display:inline-block;">fast register</a>', register_url
                 )
         except Course.DoesNotExist:
             pass
 
         return super().change_view(request, object_id, form_url, extra_context)
+
+    @requires_course_managing_permission
+    def register_user_view(self, request, course_id):
+        try:
+            course = Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            messages.error(request, "Course not found.")
+            return redirect("admin:courses_course_changelist")
+
+        if request.method == "POST":
+            form = FastRegisterForm(request.POST, course=course)
+            if form.is_valid():
+                first_name = form.cleaned_data["first_name"]
+                last_name = form.cleaned_data["last_name"]
+                phone_number = normalize_phone(form.cleaned_data["phone_number"])
+                email = form.cleaned_data.get("email", "")
+                profession = form.cleaned_data.get("profession", "")
+                education = form.cleaned_data.get("education", None)
+                telegram_id = form.cleaned_data.get("telegram_id", None)
+                age = form.cleaned_data.get("age", None)
+                make_transaction = form.cleaned_data.get("make_transaction", False)
+                paid_amount = form.cleaned_data.get("paid_amount", 0)
+                tracking_code = form.cleaned_data.get("tracking_code", "")
+                initial_price = form.cleaned_data.get("initial_price", 0)
+                vat = form.cleaned_data.get("vat", 0)
+                tuition = form.cleaned_data.get("tuition", 0)
+                status = form.cleaned_data.get("status", 1)
+                payment_status = form.cleaned_data.get("payment_status", 1)
+                payment_type = form.cleaned_data.get("payment_type", 1)
+                payment_description = form.cleaned_data.get("payment_description", "")
+
+                user = get_or_update_user(
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone_number=phone_number,
+                    email=email,
+                    telegram_id=telegram_id,
+                    age=age,
+                    profession=profession,
+                    education=education,
+                )
+                existing_registration = Registration.objects.filter(user=user, course=course).first()
+
+                if existing_registration:
+                    messages.warning(request, f"User {user.first_name} {user.last_name} is already registered for this course.")
+                else:
+                    registration = Registration.objects.create(
+                        user=user,
+                        course=course,
+                        status=status,
+                        payment_status=payment_status,
+                        payment_type=payment_type,
+                        initial_price=initial_price,
+                        vat=vat,
+                        discount=initial_price + vat - tuition,
+                        tuition=tuition,
+                        payment_description=payment_description,
+                        registration_date=get_jdatetime_now_with_timezone(),
+                    )
+
+                    if make_transaction and paid_amount > 0:
+                        try:
+                            financial_account = (
+                                FinancialAccount.objects.filter(name__icontains="cash").first() or FinancialAccount.objects.first()
+                            )
+
+                            if financial_account:
+                                course_transaction = CourseTransaction.objects.create(
+                                    registration=registration,
+                                    user_account=user,
+                                    course=course,
+                                    amount=paid_amount,
+                                    transaction_type=1,
+                                    transaction_category=INCOME_CATEGORY_REGISTRATION,
+                                    financial_account=financial_account,
+                                    transaction_date=get_jdatetime_now_with_timezone(),
+                                    entry_user=request.user,
+                                    tracking_code=tracking_code or "",
+                                )
+                                course_transaction.transaction = course_transaction.create_transaction()
+                                course_transaction.save()
+
+                                messages.success(
+                                    request,
+                                    f"User {user.first_name} {user.last_name} successfully registered and transaction of {paid_amount:,} created.",
+                                )
+                            else:
+                                messages.warning(request, "User registered but no financial account found for transaction.")
+                        except Exception as e:
+                            messages.warning(request, f"User registered but transaction creation failed: {e!s}")
+                    else:
+                        messages.success(
+                            request, f"User {user.first_name} {user.last_name} successfully registered for {course.course_name}."
+                        )
+
+                return redirect("../")
+
+                # except Exception as e:
+                #     messages.error(request, f"Error registering user: {e!s}")
+                #     return redirect(request.path)
+        else:
+            form = FastRegisterForm(course=course)
+
+        context = {
+            "form": form,
+            "course": course,
+            **self.admin_site.each_context(request),
+        }
+        return render(request, "admin/courses/course/fast_register.html", context)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path("<int:course_id>/fast-register/", self.admin_site.admin_view(self.register_user_view), name="course-fast-register"),
+        ]
+        return custom_urls + urls
 
 
 @admin.register(CourseSession)
@@ -208,6 +381,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         ("course", DALFRelatedFieldAjax),
     ]
     search_fields = [
+        "user__first_name",
+        "user__last_name",
         "user__phone_number",
         "course__number",
         "course__course_type__name",
@@ -228,7 +403,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             {
                 "fields": (
                     "payment_status",
-                    ("initial_price", "discount", "tuition", "paid_amount"),
+                    ("initial_price", "discount", "vat"),
+                    ("tuition", "paid_amount"),
                     "next_payment_date",
                     "payment_description",
                 )
@@ -362,11 +538,6 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         from courses.models import Registration
         from financials.models import INCOME_CATEGORY_REGISTRATION, CourseTransaction
         from users.models import User
-
-        def make_none_empty_str(text):
-            if text == "":
-                return None
-            return text
 
         users_dic = {user[1]: user for user in User.objects.all().values_list("id", "username", "first_name", "last_name", "phone_number")}
         users_dup_check = {f"{u[2]}{u[3]}".replace(" ", ""): u for u in users_dic.values() if u[3] not in [None, ""]}
@@ -646,8 +817,8 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                         "تخفیف": reg.discount,
                         "tax": reg.vat,
                         "شهریه": reg.tuition,
-                        "وضعیت پرداخت": reg.payment_status_display,
-                        "نوع پرداخت": reg.payment_type_display,
+                        "وضعیت پرداخت": reg.get_payment_status_display,
+                        "نوع پرداخت": reg.get_payment_type_display,
                         "تاریخ پرداخت بعدی": reg.next_payment_date.strftime("%Y/%m/%d") if reg.next_payment_date else "",
                         "پشتیبان": f"{reg.supporting_user.first_name} {reg.supporting_user.last_name}" if reg.supporting_user else "",
                         "توضیحات": reg.description or "",
@@ -742,7 +913,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                             logs.append(["No Phone", str(first_name), str(last_name), str(phone)])
                         else:
                             username = phone
-
+                        reg_date = datetime.strptime(str(row["Created at (gregorian)"]), "%m/%d/%Y %H:%M")
+                        reg_date = timezone.make_aware(reg_date, timezone=timezone.get_current_timezone())
+                        reg_date = jdatetime.fromgregorian(datetime=reg_date)
                         data.append(
                             {
                                 "index": index,
@@ -758,9 +931,9 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
                                 "education": details.get("تحصیلات", ""),
                                 "profession": details.get("حرفه تخصصی", ""),
                                 "telegram_id": details.get("آی\u200cدی تلگرام جهت عضو شدن در گروه دوره", ""),
-                                "age": details.get("سن", None),
+                                "age": convert_to_english_digit(details.get("سن", None)),
                                 "referer_name": details.get("معرف", ""),
-                                "registration_date": datetime.strptime(str(row["Created at (gregorian)"]), "%m/%d/%Y %H:%M"),
+                                "registration_date": reg_date,
                                 "tracking_code": row["Payment Reference Code"],
                                 "financial_account": FinancialAccount.objects.get(name="پی‌پینگ"),
                                 "entry_user": request.user,
@@ -808,7 +981,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
 
 
 @admin.register(Attendance)
-class AttendanceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+class AttendanceAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = [
         "user",
         "session",
@@ -816,9 +989,9 @@ class AttendanceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
         "_created_at",
         "_updated_at",
     ]
-    list_filter = [("attended_at", JDateFieldListFilter)]
-    search_fields = ["user__first_name", "user__last_name", "session__session_name", "user__phone_number"]
-    readonly_fields = ["user", "session", "attended_at", "_created_at", "_updated_at"]
+    list_filter = [("attended_at", JDateFieldListFilter), ("session", DALFRelatedFieldAjax), ("user", DALFRelatedFieldAjax)]
+    search_fields = []
+    readonly_fields = ["attended_at", "_created_at", "_updated_at"]
     autocomplete_fields = ["user", "session"]
     fieldsets = (
         ("Attendance Information", {"fields": ("user", "session", "attended_at")}),
@@ -826,13 +999,18 @@ class AttendanceAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        # Select related user and session for performance
         qs = super().get_queryset(request)
         return qs.select_related("user", "session")
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj is None:
+            return readonly_fields
+        return [*readonly_fields, "user", "session"]
+
 
 @admin.register(CourseType)
-class CourseTypeAdmin(DetailedLogAdminMixin, admin.ModelAdmin):
+class CourseTypeAdmin(DetailedLogAdminMixin, DALFModelAdmin):
     list_display = ["name", "name_fa", "category", "description", "_created_at", "_updated_at"]
     search_fields = ["name", "name_fa", "description"]
     list_filter = ["category"]

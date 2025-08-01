@@ -36,7 +36,11 @@ def requires_course_managing_permission(view_func):
                 messages.error(request, "دوره مورد نظر یافت نشد.")
                 return redirect("admin:courses_course_changelist")
             else:
-                messages.error(request, f"خطا در بررسی دسترسی: {e!s}")
+                messages.error(request, f"خطا در اجرا: {e!s}")
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.exception("Error in requires_course_managing_permission")
                 return redirect("admin:courses_course_changelist")
 
     return _wrapped_view

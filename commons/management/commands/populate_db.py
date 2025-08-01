@@ -1,6 +1,5 @@
 from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
-from django.db import transaction
 from django.utils import timezone
 
 from commons.utils import get_jdatetime_now_with_timezone
@@ -19,16 +18,16 @@ class Command(BaseCommand):
         num_users = options["users"]
         num_courses = options["courses"]
 
-        with transaction.atomic():
-            self.create_superuser()
-            self.create_users(num_users)
-            self.create_course_types()
-            self.create_courses(num_courses)
-            self.create_sessions()
-            self.create_registrations()
-            self.setup_staff_users()
-            self.create_groups_and_permissions()
-            self.assign_supporting_users()
+        # with transaction.atomic():
+        self.create_superuser()
+        self.create_users(num_users)
+        self.create_course_types()
+        self.create_courses(num_courses)
+        self.create_sessions()
+        self.create_registrations()
+        self.setup_staff_users()
+        self.create_groups_and_permissions()
+        self.assign_supporting_users()
 
     def create_superuser(self):
         if not User.objects.filter(is_superuser=True).exists():
@@ -54,7 +53,7 @@ class Command(BaseCommand):
 
     def create_course_types(self):
         done_course_types = set(CourseType.objects.values_list("id", flat=True))
-        course_types_data = {1: ("L1", "ال۱"), 2: ("L2", "ال۲"), 3: ("L3", "ال۳"), 4: ("L4", "ال۴")}
+        course_types_data = {1: ("L", "پیش‌وایی"), 2: ("M", "مواجهه"), 3: ("A", "دستاورد"), 4: ("P", "پیله")}
         course_types = [
             CourseType(id=i, name=name, name_fa=name_fa) for i, (name, name_fa) in course_types_data.items() if i not in done_course_types
         ]
@@ -64,22 +63,23 @@ class Command(BaseCommand):
 
     def create_courses(self, num_courses):
         done_courses = set(Course.objects.values_list("number", flat=True))
-        try:
-            ct1 = CourseType.objects.get(id=1)
-        except CourseType.DoesNotExist:
-            self.stdout.write(self.style.ERROR("CourseType with id=1 not found"))
-            return
 
-        courses = [Course(course_type=ct1, number=i) for i in range(num_courses) if i not in done_courses]
+        course_types = CourseType.objects.all()
+        courses = [
+            Course(course_name=f"{course_types[i % 4].name} - {i}", course_type=course_types[i % 4], number=i)
+            for i in range(num_courses)
+            if i not in done_courses
+        ]
         if courses:
             Course.objects.bulk_create(courses)
         self.stdout.write(f"Courses created: {Course.objects.count()}")
 
     def create_sessions(self):
         done_sessions = set(CourseSession.objects.values_list("session_name", flat=True))
+        courses = Course.objects.all()
         sessions = [
             CourseSession(
-                course_id=i // 10 + 1,
+                course=courses[i % len(courses)],
                 session_name=f"Session {i % 10 + 1}",
                 start_date=get_jdatetime_now_with_timezone(),
                 end_date=get_jdatetime_now_with_timezone() + timezone.timedelta(days=i),
@@ -94,14 +94,15 @@ class Command(BaseCommand):
 
     def create_registrations(self):
         done_registrations = {f"{a[0]}-{a[1]}" for a in Registration.objects.values_list("course_id", "user_id")}
+        courses = Course.objects.all()
         registrations = [
             Registration(
-                course_id=(i % 50) + 1,
-                user_id=(i % 1000) + 1,
+                course=courses[i % len(courses)],
+                user_id=(i // 50) + (i % 50) + 1,
                 status=1,
             )
             for i in range(2000)
-            if f"{(i % 50) + 1}-{(i % 1000) + 1}" not in done_registrations
+            if f"{courses[i % len(courses)].id}-{(i // 50) + (i % 50) + 1}" not in done_registrations
         ]
         if registrations:
             Registration.objects.bulk_create(registrations)
@@ -152,9 +153,9 @@ class Command(BaseCommand):
             return
 
         try:
-            Course.objects.get(course_type=1, number=1).instructors.add(user1)
-            Course.objects.get(course_type=1, number=2).managing_users.add(user1)
-            Course.objects.get(course_type=1, number=3).supporting_users.add(user1)
+            Course.objects.get(course_type_id=1, number=1).instructors.add(user1)
+            Course.objects.get(course_type_id=1, number=2).managing_users.add(user1)
+            Course.objects.get(course_type_id=1, number=3).supporting_users.add(user1)
         except Course.DoesNotExist:
             self.stdout.write(self.style.WARNING("Some courses not found for user assignment"))
 

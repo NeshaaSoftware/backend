@@ -12,6 +12,7 @@ class Command(BaseCommand):
         FinancialAccount.objects.get_or_create(name="پی‌پینگ")
         reg, _ = Group.objects.get_or_create(name=settings.REGISTRATION_GROUP_NAME)
         sup, _ = Group.objects.get_or_create(name=settings.SUPPORT_GROUP_NAME)
+        manag, _ = Group.objects.get_or_create(name=settings.MANAGING_GROUP_NAME)
         reg_permission_code = [
             "view_registration",
             "change_registration",
@@ -35,7 +36,19 @@ class Command(BaseCommand):
             "view_crmuser",
         ]
         sup_permissions = [Permission.objects.get(codename=permission) for permission in sup_permission_code]
+        manag_permission_code = [
+            "view_crmuserlabel",
+            "view_crmuser",
+            "view_crmlog",
+            "change_crmuser",
+            "add_crmlog",
+            "view_user",
+            "view_registration",
+        ]
+        manage_permissions = [Permission.objects.get(codename=permission) for permission in manag_permission_code]
         for permission in reg_permissions:
             reg.permissions.add(permission)
         for permission in sup_permissions:
             sup.permissions.add(permission)
+        for permission in manage_permissions:
+            manag.permissions.add(permission)

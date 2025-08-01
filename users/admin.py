@@ -1,11 +1,10 @@
-from httpx import request
 import pandas as pd
 from dalf.admin import DALFModelAdmin, DALFRelatedFieldAjax
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
-from django.http import HttpResponse
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -115,9 +114,7 @@ class UserAdmin(DetailedLogAdminMixin, DjangoUserAdmin):
         try:
             user = self.model.objects.get(pk=object_id)
             url = reverse("admin:users_crmuser_change", args=[user._crm_user.id])
-            extra_context["crm_user_button"] = format_html(
-                '<a class="submit-button info" href="{}">Go to CRM User</a>', url
-            )
+            extra_context["crm_user_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Go to CRM User</a>', url)
         except Exception:
             extra_context["crm_user_button"] = None
         return super().change_view(request, object_id, form_url, extra_context=extra_context)
@@ -225,13 +222,11 @@ class CrmUserLabelAdmin(ManagingGroupPermissionMixin, admin.ModelAdmin):
                 extra_context["show_set_crm"] = True
                 set_crm_url = reverse("admin:user_set_crm_view", args=[object_id])
                 extra_context["set_crm_button"] = format_html(
-                    '<a class="submit-button info" href="{}">Set CRM Users</a>', set_crm_url
+                    '<a class="button" href="{}" style="display:inline-block;">Set CRM Users</a>', set_crm_url
                 )
                 extra_context["show_export_crms"] = True
                 export_url = reverse("admin:user_export_crm_view", args=[object_id])
-                extra_context["export_button"] = format_html(
-                    '<a class="submit-button" href="{}">Export CRMs</a>', export_url
-                )
+                extra_context["export_button"] = format_html('<a class="button" href="{}" style="display:inline-block;">Export CRMs</a>', export_url)
         except CrmUserLabel.DoesNotExist:
             pass
 
@@ -266,13 +261,16 @@ class CrmUserLabelAdmin(ManagingGroupPermissionMixin, admin.ModelAdmin):
                         "last name": crm.user.last_name,
                         "phone": getattr(crm.user, "phone_number", ""),
                         "supporting user": crm.supporting_user.phone_number if crm.supporting_user else None,
-                        "supporting user name": f"{crm.supporting_user.first_name} {crm.supporting_user.last_name}" if crm.supporting_user else "",
+                        "supporting user name": f"{crm.supporting_user.first_name} {crm.supporting_user.last_name}"
+                        if crm.supporting_user
+                        else "",
                     }
                 )
             df = pd.DataFrame(data)
             response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             response["Content-Disposition"] = f'attachment; filename="{crm_label.name}.xlsx"'
             from io import BytesIO
+
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name="data")
@@ -288,7 +286,7 @@ class CrmUserLabelAdmin(ManagingGroupPermissionMixin, admin.ModelAdmin):
         except Exception as e:
             messages.error(request, f"خطا در ایجاد فایل اکسل: {e!s}")
             return redirect("..")
-    
+
     @requires_managing_group_permission
     def set_crm_view(self, request, label_id):
         if request.method == "POST":

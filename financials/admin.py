@@ -254,7 +254,7 @@ class TransactionAdmin(DetailedLogAdminMixin, DALFModelAdmin):
                 course_transactions_url = reverse("admin:financials_coursetransaction_changelist")
                 course_transactions_url += f"?transaction__id__exact={transaction.id}"
                 extra_context["go_to_course_transactions_button"] = format_html(
-                    '<a class="submit-button info" href="{}">Go to Course Transactions</a>',
+                    '<a class="button" href="{}" style="display:inline-block;">Go to Course Transactions</a>',
                     course_transactions_url,
                 )
         except Exception:

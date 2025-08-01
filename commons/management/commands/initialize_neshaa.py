@@ -23,7 +23,7 @@ class Command(BaseCommand):
         ]
         reg_permissions = [Permission.objects.get(codename=permission) for permission in reg_permission_code]
         sup_permission_code = [
-            "view_crmlabel",
+            "view_crmuserlabel",
             "view_crmlog",
             "change_crmlog",
             "add_crmlog",

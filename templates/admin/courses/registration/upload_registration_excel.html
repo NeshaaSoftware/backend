@@ -7,6 +7,7 @@
 {% block extrahead %}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     {{ form.media }}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/custom-buttons.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -20,11 +21,11 @@
     <div style="overflow-x:auto;">{{ preview_html|safe }}</div>
     <input type="hidden" name="confirm_preview" value="1" />
     {% if show_confirm %}
-      <button type="submit" class="default">Continue and Process</button>
-      <a href="." class="button">Cancel</a>
+      <button type="submit" class="submit-button">Continue and Process</button>
+      <a href="." class="cancel-button">Cancel</a>
     {% endif %}
   {% else %}
-    <button type="submit" class="default">Preview</button>
+    <button type="submit" class="submit-button">Preview</button>
   {% endif %}
 </form>
 <a href="{% url 'admin:courses_registration_changelist' %}">Back to registrations</a>

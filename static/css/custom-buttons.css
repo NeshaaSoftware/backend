@@ -1,0 +1,88 @@
+.submit-button {
+    background-color: #28a745 !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    margin-right: 10px !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+    transition: background-color 0.3s ease !important;
+}
+
+.submit-button:hover {
+    background-color: #218838 !important;
+    color: white !important;
+    text-decoration: none !important;
+}
+
+.submit-button:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25) !important;
+}
+
+.submit-button:active {
+    background-color: #1e7e34 !important;
+}
+
+/* Variations for different button types */
+.submit-button.large {
+    padding: 16px 32px !important;
+    font-size: 18px !important;
+}
+
+.submit-button.small {
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+}
+
+/* Secondary action button (for cancel, etc.) */
+.cancel-button {
+    background-color: #6c757d !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    margin-left: 10px !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+    transition: background-color 0.3s ease !important;
+}
+
+.cancel-button:hover {
+    background-color: #5a6268 !important;
+    color: white !important;
+    text-decoration: none !important;
+}
+
+/* Warning/Delete button variant */
+.submit-button.danger {
+    background-color: #dc3545 !important;
+}
+
+.submit-button.danger:hover {
+    background-color: #c82333 !important;
+}
+
+.submit-button.danger:active {
+    background-color: #bd2130 !important;
+}
+
+/* Info/Secondary submit button variant */
+.submit-button.info {
+    background-color: #17a2b8 !important;
+}
+
+.submit-button.info:hover {
+    background-color: #138496 !important;
+}
+
+.submit-button.info:active {
+    background-color: #117a8b !important;
+}

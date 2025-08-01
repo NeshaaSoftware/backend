@@ -7,15 +7,16 @@
 {% block extrahead %}
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     {{ form.media }}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/custom-buttons.css' %}">
 {% endblock %}
 
 {% block content %}
-<h2>Upload Registration Excel</h2>
+<h2>Fast Register User</h2>
 <form method="post" enctype="multipart/form-data">
   {% csrf_token %}
   {{ form.media }}
   {{ form.as_p }}
-  <button type="submit" class="default">submit</button>
+  <button type="submit" class="submit-button">Register User</button>
 </form>
-<a href="{% url 'admin:courses_registration_changelist' %}">Back to registrations</a>
+<a href="../" class="cancel-button" style="text-decoration: none;">Back to Course</a>
 {% endblock %}

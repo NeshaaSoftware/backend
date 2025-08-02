@@ -52,7 +52,18 @@ class CourseTeamInline(admin.TabularInline):
     extra = 0
     fields = ["user", "status", "course"]
     autocomplete_fields = ["user"]
-    readonly_fields = ["user"]
+    readonly_fields = []
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if request.user.is_superuser:
+            return readonly_fields
+        return self.fields
+
+    def has_delete_permission(self, request, obj=None):
+        if not request.user.is_superuser:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(CourseTeam)

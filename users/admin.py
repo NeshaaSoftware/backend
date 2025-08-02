@@ -352,6 +352,7 @@ class CrmUserLabelAdmin(ManagingGroupPermissionMixin, admin.ModelAdmin):
                         crm_support = crm_map.get(data.get("support", None))
                         if crm_user.supporting_user is None:
                             crm_user.supporting_user = crm_support.user
+                            crm_user.status = 1
                             crm_user.save()
                 crm_label.crm_users.add(*[crm_map.get(phone) for phone in support_map.keys()])
                 self.message_user(request, f"# {len(support_map)} updated with label {crm_label.name}")

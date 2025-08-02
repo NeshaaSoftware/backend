@@ -56,14 +56,14 @@ class CourseTeamInline(admin.TabularInline):
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = super().get_readonly_fields(request, obj)
-        if request.user.is_superuser:
+        if request.user.is_superuser and obj and obj.managing_users.filter(pk=request.user.pk).exists():
             return readonly_fields
         return self.fields
 
     def has_delete_permission(self, request, obj=None):
-        if not request.user.is_superuser:
-            return False
-        return super().has_delete_permission(request, obj)
+        if request.user.is_superuser and obj and obj.managing_users.filter(pk=request.user.pk).exists():
+            return super().has_delete_permission(request, obj)
+        return False
 
 
 @admin.register(CourseTeam)

@@ -56,12 +56,12 @@ class CourseTeamInline(admin.TabularInline):
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = super().get_readonly_fields(request, obj)
-        if request.user.is_superuser and obj and obj.managing_users.filter(pk=request.user.pk).exists():
+        if request.user.is_superuser and obj and isinstance(obj, Course) and obj.managing_users.filter(pk=request.user.pk).exists():
             return readonly_fields
         return self.fields
 
     def has_delete_permission(self, request, obj=None):
-        if request.user.is_superuser and obj and obj.managing_users.filter(pk=request.user.pk).exists():
+        if request.user.is_superuser and obj and isinstance(obj, Course) and obj.managing_users.filter(pk=request.user.pk).exists():
             return super().has_delete_permission(request, obj)
         return False
 
@@ -381,6 +381,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         "course",
         "status",
         "joined_group",
+        "welcome_call",
         "supporting_user",
         "payment_status",
         "tuition",
@@ -396,6 +397,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
         "status",
         "payment_status",
         "joined_group",
+        "welcome_call",
         ("registration_date", JDateFieldListFilter),
         ("course", DALFRelatedFieldAjax),
     ]
@@ -418,7 +420,7 @@ class RegistrationAdmin(DetailedLogAdminMixin, CoursePermissionMixin, DALFModelA
             {
                 "fields": (
                     ("user", "course", "registration_date"),
-                    ("supporting_user", "joined_group"),
+                    ("supporting_user", "joined_group", "welcome_call"),
                     ("status", "payment_status"),
                 )
             },

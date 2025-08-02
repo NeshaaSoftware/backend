@@ -4,10 +4,15 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from commons.models import DetailedLog
-from commons.utils import get_jdatetime_now_with_timezone
+from commons.utils import arabic_to_persian_characters, get_jdatetime_now_with_timezone
 
-from .models import CrmLog
+from .models import CrmLog, User
 
+
+@receiver(pre_save, sender=User)
+def user_pre_save_fix_name(sender, instance, **kwargs):
+    instance.first_name = arabic_to_persian_characters(instance.first_name) or ""
+    instance.last_name = arabic_to_persian_characters(instance.last_name) or ""
 
 @receiver(pre_save, sender=CrmLog)
 def crm_log_pre_save(sender, instance, **kwargs):

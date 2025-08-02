@@ -36,6 +36,20 @@ def convert_to_english_digit(text: str) -> str:
     return "".join(re.findall(r"\d", text))
 
 
+def arabic_to_persian_characters(text: str) -> str:
+    if text is None or not isinstance(text, str):
+        return text
+    arabic_to_persian = {
+        "ك": "ک",
+        "ي": "ی",
+        "ؤ": "و",
+        "إ": "ا",
+    }
+    for arabic_char, persian_char in arabic_to_persian.items():
+        text = text.replace(arabic_char, persian_char)
+    return text
+
+
 def normalize_phone(phone: str) -> str | None:
     if not phone:
         return None

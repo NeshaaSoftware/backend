@@ -126,6 +126,7 @@ class Registration(TimeStampedModel):
     description = models.TextField(blank=True, null=True)
     payment_description = models.TextField(blank=True, null=True)
     joined_group = models.BooleanField(default=False, help_text="عضویت در گروه دوره")
+    welcome_call = models.BooleanField(default=False, help_text="تماس پیش‌واز")
 
     class Meta:
         ordering = ["-registration_date"]
